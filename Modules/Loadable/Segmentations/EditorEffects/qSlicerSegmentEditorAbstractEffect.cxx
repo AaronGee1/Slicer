@@ -304,7 +304,7 @@ void qSlicerSegmentEditorAbstractEffect::modifySegmentByLabelmap(vtkMRMLSegmenta
 
   vtkSmartPointer<vtkOrientedImageData> modifierLabelmap = modifierLabelmapInput;
   if ((!bypassMasking && parameterSetNode->GetMaskMode() != vtkMRMLSegmentationNode::EditAllowedEverywhere) ||
-    parameterSetNode->GetMasterVolumeIntensityMask())
+    parameterSetNode->GetSourceVolumeIntensityMask())
     {
     vtkNew<vtkOrientedImageData> maskImage;
     maskImage->SetExtent(modifierLabelmap->GetExtent());
@@ -321,27 +321,27 @@ void qSlicerSegmentEditorAbstractEffect::modifySegmentByLabelmap(vtkMRMLSegmenta
       }
 
     // Apply threshold mask if paint threshold is turned on
-    if (parameterSetNode->GetMasterVolumeIntensityMask())
+    if (parameterSetNode->GetSourceVolumeIntensityMask())
       {
-      vtkOrientedImageData* masterVolumeOrientedImageData = this->masterVolumeImageData();
-      if (!masterVolumeOrientedImageData)
+      vtkOrientedImageData* sourceVolumeOrientedImageData = this->sourceVolumeImageData();
+      if (!sourceVolumeOrientedImageData)
         {
-        qCritical() << Q_FUNC_INFO << ": Unable to get master volume image";
+        qCritical() << Q_FUNC_INFO << ": Unable to get source volume image";
         this->defaultModifierLabelmap();
         return;
         }
-      // Make sure the modifier labelmap has the same geometry as the master volume
-      if (!vtkOrientedImageDataResample::DoGeometriesMatch(modifierLabelmap, masterVolumeOrientedImageData))
+      // Make sure the modifier labelmap has the same geometry as the source volume
+      if (!vtkOrientedImageDataResample::DoGeometriesMatch(modifierLabelmap, sourceVolumeOrientedImageData))
         {
-        qCritical() << Q_FUNC_INFO << ": Modifier labelmap should have the same geometry as the master volume";
+        qCritical() << Q_FUNC_INFO << ": Modifier labelmap should have the same geometry as the source volume";
         this->defaultModifierLabelmap();
         return;
         }
 
       // Create threshold image
       vtkSmartPointer<vtkImageThreshold> threshold = vtkSmartPointer<vtkImageThreshold>::New();
-      threshold->SetInputData(masterVolumeOrientedImageData);
-      threshold->ThresholdBetween(parameterSetNode->GetMasterVolumeIntensityMaskRange()[0], parameterSetNode->GetMasterVolumeIntensityMaskRange()[1]);
+      threshold->SetInputData(sourceVolumeOrientedImageData);
+      threshold->ThresholdBetween(parameterSetNode->GetSourceVolumeIntensityMaskRange()[0], parameterSetNode->GetSourceVolumeIntensityMaskRange()[1]);
       threshold->SetInValue(m_EraseValue);
       threshold->SetOutValue(m_FillValue);
       threshold->SetOutputScalarTypeToUnsignedChar();
@@ -356,7 +356,7 @@ void qSlicerSegmentEditorAbstractEffect::modifySegmentByLabelmap(vtkMRMLSegmenta
       }
 
     vtkSmartPointer<vtkOrientedImageData> segmentLayerLabelmap =
-      vtkOrientedImageData::SafeDownCast(segment->GetRepresentation(segmentationNode->GetSegmentation()->GetMasterRepresentationName()));
+      vtkOrientedImageData::SafeDownCast(segment->GetRepresentation(segmentationNode->GetSegmentation()->GetSourceRepresentationName()));
     if (segmentLayerLabelmap
       && this->parameterSetNode()->GetMaskMode() == vtkMRMLSegmentationNode::EditAllowedInsideSingleSegment
       && modificationMode == qSlicerSegmentEditorAbstractEffect::ModificationModeRemove)
@@ -474,7 +474,7 @@ void qSlicerSegmentEditorAbstractEffect::modifySegmentByLabelmap(vtkMRMLSegmenta
   if (modificationMode == qSlicerSegmentEditorAbstractEffect::ModificationModeSet)
     {
     vtkSmartPointer<vtkImageThreshold> segmentInverter = vtkSmartPointer<vtkImageThreshold>::New();
-    segmentInverter->SetInputData(segment->GetRepresentation(segmentationNode->GetSegmentation()->GetMasterRepresentationName()));
+    segmentInverter->SetInputData(segment->GetRepresentation(segmentationNode->GetSegmentation()->GetSourceRepresentationName()));
     segmentInverter->SetInValue(m_EraseValue);
     segmentInverter->SetOutValue(VTK_UNSIGNED_CHAR_MAX);
     segmentInverter->ReplaceInOn();
@@ -627,22 +627,22 @@ void qSlicerSegmentEditorAbstractEffect::modifySegmentByLabelmap(vtkMRMLSegmenta
       }
     }
 
-  // Make sure the segmentation node is under the same parent as the master volume
-  vtkMRMLScalarVolumeNode* masterVolumeNode = d->ParameterSetNode->GetMasterVolumeNode();
-  if (masterVolumeNode)
+  // Make sure the segmentation node is under the same parent as the source volume
+  vtkMRMLScalarVolumeNode* sourceVolumeNode = d->ParameterSetNode->GetSourceVolumeNode();
+  if (sourceVolumeNode)
     {
     vtkMRMLSubjectHierarchyNode* shNode = vtkMRMLSubjectHierarchyNode::GetSubjectHierarchyNode(d->ParameterSetNode->GetScene());
     if (shNode)
       {
       vtkIdType segmentationId = shNode->GetItemByDataNode(segmentationNode);
-      vtkIdType masterVolumeShId = shNode->GetItemByDataNode(masterVolumeNode);
-      if (segmentationId && masterVolumeShId)
+      vtkIdType sourceVolumeShId = shNode->GetItemByDataNode(sourceVolumeNode);
+      if (segmentationId && sourceVolumeShId)
         {
-        shNode->SetItemParent(segmentationId, shNode->GetItemParent(masterVolumeShId));
+        shNode->SetItemParent(segmentationId, shNode->GetItemParent(sourceVolumeShId));
         }
       else
         {
-        qCritical() << Q_FUNC_INFO << ": Subject hierarchy items not found for segmentation or master volume";
+        qCritical() << Q_FUNC_INFO << ": Subject hierarchy items not found for segmentation or source volume";
         }
       }
     }
@@ -1028,8 +1028,8 @@ int qSlicerSegmentEditorAbstractEffect::confirmCurrentSegmentVisible()
 
   ctkMessageBox* confirmCurrentSegmentVisibleMsgBox = new ctkMessageBox(mainWindow);
   confirmCurrentSegmentVisibleMsgBox->setAttribute(Qt::WA_DeleteOnClose);
-  confirmCurrentSegmentVisibleMsgBox->setWindowTitle("Operate on invisible segment?");
-  confirmCurrentSegmentVisibleMsgBox->setText("The currently selected segment is hidden. Would you like to make it visible?");
+  confirmCurrentSegmentVisibleMsgBox->setWindowTitle(tr("Operate on invisible segment?"));
+  confirmCurrentSegmentVisibleMsgBox->setText(tr("The currently selected segment is hidden. Would you like to make it visible?"));
 
   confirmCurrentSegmentVisibleMsgBox->addButton(QMessageBox::Yes);
   confirmCurrentSegmentVisibleMsgBox->addButton(QMessageBox::No);
@@ -1203,14 +1203,14 @@ void qSlicerSegmentEditorAbstractEffect::setCommonParameterDefault(QString name,
 }
 
 //-----------------------------------------------------------------------------
-void qSlicerSegmentEditorAbstractEffect::setVolumes(vtkOrientedImageData* alignedMasterVolume,
+void qSlicerSegmentEditorAbstractEffect::setVolumes(vtkOrientedImageData* alignedSourceVolume,
   vtkOrientedImageData* modifierLabelmap, vtkOrientedImageData* maskLabelmap,
   vtkOrientedImageData* selectedSegmentLabelmap, vtkOrientedImageData* referenceGeometryImage)
 {
   Q_D(qSlicerSegmentEditorAbstractEffect);
   d->ModifierLabelmap = modifierLabelmap;
   d->MaskLabelmap = maskLabelmap;
-  d->AlignedMasterVolume = alignedMasterVolume;
+  d->AlignedSourceVolume = alignedSourceVolume;
   d->SelectedSegmentLabelmap = selectedSegmentLabelmap;
   d->ReferenceGeometryImage = referenceGeometryImage;
 }
@@ -1220,7 +1220,7 @@ vtkOrientedImageData* qSlicerSegmentEditorAbstractEffect::defaultModifierLabelma
 {
   Q_D(qSlicerSegmentEditorAbstractEffect);
   bool success = false;
-  emit d->updateVolumeSignal(d->ModifierLabelmap.GetPointer(), success); // this resets the labelmap and cleares it
+  emit d->updateVolumeSignal(d->ModifierLabelmap.GetPointer(), success); // this resets the labelmap and clears it
   if (!success)
     {
     return nullptr;
@@ -1249,16 +1249,24 @@ vtkOrientedImageData* qSlicerSegmentEditorAbstractEffect::maskLabelmap()
 }
 
 //-----------------------------------------------------------------------------
-vtkOrientedImageData* qSlicerSegmentEditorAbstractEffect::masterVolumeImageData()
+vtkOrientedImageData* qSlicerSegmentEditorAbstractEffect::sourceVolumeImageData()
 {
   Q_D(qSlicerSegmentEditorAbstractEffect);
   bool success = false;
-  emit d->updateVolumeSignal(d->AlignedMasterVolume.GetPointer(), success);
+  emit d->updateVolumeSignal(d->AlignedSourceVolume.GetPointer(), success);
   if (!success)
     {
     return nullptr;
     }
-  return d->AlignedMasterVolume;
+  return d->AlignedSourceVolume;
+}
+
+//-----------------------------------------------------------------------------
+vtkOrientedImageData* qSlicerSegmentEditorAbstractEffect::masterVolumeImageData()
+{
+  qWarning("qSlicerSegmentEditorAbstractEffect::masterVolumeImageData() method is deprecated,"
+    " use sourceVolumeImageData method instead");
+  return this->sourceVolumeImageData();
 }
 
 //-----------------------------------------------------------------------------

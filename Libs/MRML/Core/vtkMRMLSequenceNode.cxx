@@ -245,6 +245,9 @@ void vtkMRMLSequenceNode::Copy(vtkMRMLNode *anode)
     }
   this->SequenceScene=vtkMRMLScene::New();
 
+  // Get data node ID in the target scene from the data node ID in the source scene
+  std::map< std::string, std::string > sourceToTargetDataNodeID;
+
   if (snode->SequenceScene)
     {
     for (int n = 0; n < snode->SequenceScene->GetNodes()->GetNumberOfItems(); n++)
@@ -255,9 +258,15 @@ void vtkMRMLSequenceNode::Copy(vtkMRMLNode *anode)
         vtkErrorMacro("Invalid node in vtkMRMLSequenceNode");
         continue;
         }
-      this->DeepCopyNodeToScene(node, this->SequenceScene);
+      vtkMRMLNode* targetDataNode = this->DeepCopyNodeToScene(node, this->SequenceScene);
+      sourceToTargetDataNodeID[node->GetID()] = targetDataNode->GetID();
       }
     }
+
+  // If the source internal scene only contains node IDs (and not the actual nodes)
+  // then we allow verbatim copying of the node IDs, without any mapping.
+  // This allows copying of a sequence node that only contains indices, not any data nodes.
+  bool mapDataNodeIds = !sourceToTargetDataNodeID.empty();
 
   this->IndexEntries.clear();
   for(std::deque< IndexEntryType >::iterator sourceIndexIt=snode->IndexEntries.begin(); sourceIndexIt!=snode->IndexEntries.end(); ++sourceIndexIt)
@@ -267,13 +276,15 @@ void vtkMRMLSequenceNode::Copy(vtkMRMLNode *anode)
     seqItem.DataNode = nullptr;
     if (sourceIndexIt->DataNode!=nullptr)
       {
-      seqItem.DataNode=this->SequenceScene->GetNodeByID(sourceIndexIt->DataNode->GetID());
+      std::string targetDataNodeID = sourceToTargetDataNodeID[sourceIndexIt->DataNode->GetID()];
+      seqItem.DataNode = this->SequenceScene->GetNodeByID(targetDataNodeID);
       seqItem.DataNodeID.clear();
       }
     if (seqItem.DataNode==nullptr)
       {
       // data node was not found, at least copy its ID
-      seqItem.DataNodeID=sourceIndexIt->DataNodeID;
+      std::string targetDataNodeID = (mapDataNodeIds ? sourceToTargetDataNodeID[sourceIndexIt->DataNodeID] : sourceIndexIt->DataNodeID);
+      seqItem.DataNodeID = targetDataNodeID;
       if (seqItem.DataNodeID.empty())
         {
         vtkWarningMacro("vtkMRMLSequenceNode::Copy: node was not found at index value "<<seqItem.IndexValue);
@@ -397,6 +408,7 @@ vtkMRMLNode* vtkMRMLSequenceNode::SetDataNodeAtValue(vtkMRMLNode* node, const st
     vtkErrorMacro("vtkMRMLSequenceNode::SetDataNodeAtValue failed, invalid node");
     return nullptr;
     }
+  MRMLNodeModifyBlocker blocker(this);
   // Make sure the sequence scene is created
   this->GetSequenceScene();
   // Add a copy of the node to the sequence's scene
@@ -413,6 +425,12 @@ vtkMRMLNode* vtkMRMLSequenceNode::SetDataNodeAtValue(vtkMRMLNode* node, const st
     }
   this->IndexEntries[seqItemIndex].DataNode = newNode;
   this->IndexEntries[seqItemIndex].DataNodeID.clear();
+  // Save the sequence data node class namein a node attribute to allow easy access
+  // (e.g., for filtering on the GUI).
+  if (this->GetNumberOfDataNodes() <= 1)
+    {
+    this->SetAttribute("DataNodeClassName", this->GetDataNodeClassName().c_str());
+    }
   this->Modified();
   this->StorableModifiedTime.Modified();
   return newNode;
@@ -769,7 +787,7 @@ vtkMRMLNode* vtkMRMLSequenceNode::DeepCopyNodeToScene(vtkMRMLNode* source, vtkMR
 {
   if (source == nullptr)
     {
-    vtkGenericWarningMacro("NodeSequencer::CopyNode failed, invalid node");
+    vtkGenericWarningMacro("vtkMRMLSequenceNode::DeepCopyNodeToScene failed, invalid node");
     return nullptr;
     }
   std::string baseName = "Data";

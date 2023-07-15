@@ -39,6 +39,7 @@ protected:
 public:
   qSlicerExtensionsManagerDialogPrivate(qSlicerExtensionsManagerDialog& object);
   void init();
+  void updateButtons();
 
   bool RestartRequested;
 
@@ -61,8 +62,11 @@ void qSlicerExtensionsManagerDialogPrivate::init()
 
   this->setupUi(q);
 
+  QObject::connect(this->ExtensionsManagerWidget, SIGNAL(inBatchProcessing(bool)),
+    q, SLOT(onBatchProcessingChanged()));
+
   QPushButton * restartButton = this->ButtonBox->button(QDialogButtonBox::Ok);
-  restartButton->setText("Restart");
+  restartButton->setText(qSlicerExtensionsManagerDialog::tr("Restart"));
 
   q->setRestartRequested(false);
 
@@ -85,6 +89,29 @@ void qSlicerExtensionsManagerDialogPrivate::init()
     QObject::connect(extensionsPanel, SIGNAL(extensionsServerUrlChanged(QString)),
                      this->ExtensionsManagerWidget, SLOT(refreshInstallWidget()));
     }
+}
+
+// --------------------------------------------------------------------------
+void qSlicerExtensionsManagerDialogPrivate::updateButtons()
+{
+  Q_Q(qSlicerExtensionsManagerDialog);
+  Q_ASSERT(q->extensionsManagerModel());
+  bool shouldRestart = false;
+  qSlicerCoreApplication * coreApp = qSlicerCoreApplication::application();
+  // this->PreviousModulesAdditionalPaths contain the raw (relative or absolute) paths, not converted to absolute
+  if (this->PreviousModulesAdditionalPaths
+      != coreApp->revisionUserSettings()->value("Modules/AdditionalPaths").toStringList() ||
+    this->PreviousExtensionsScheduledForUninstall
+      != coreApp->revisionUserSettings()->value("Extensions/ScheduledForUninstall").toStringList() ||
+    this->PreviousExtensionsScheduledForUpdate
+      != coreApp->revisionUserSettings()->value("Extensions/ScheduledForUpdate").toMap())
+    {
+    shouldRestart = true;
+    }
+  bool isInBatchMode = this->ExtensionsManagerWidget->isInBatchProcessing();
+
+  this->ButtonBox->setEnabled(!isInBatchMode);
+  q->setRestartRequested(shouldRestart);
 }
 
 // --------------------------------------------------------------------------
@@ -163,20 +190,14 @@ void qSlicerExtensionsManagerDialog::setRestartRequested(bool value)
 void qSlicerExtensionsManagerDialog::onModelUpdated()
 {
   Q_D(qSlicerExtensionsManagerDialog);
-  Q_ASSERT(this->extensionsManagerModel());
-  bool shouldRestart = false;
-  qSlicerCoreApplication * coreApp = qSlicerCoreApplication::application();
-  // this->PreviousModulesAdditionalPaths contain the raw (relative or absolute) paths, not converted to absolute
-  if (d->PreviousModulesAdditionalPaths
-      != coreApp->revisionUserSettings()->value("Modules/AdditionalPaths").toStringList() ||
-      d->PreviousExtensionsScheduledForUninstall
-      != coreApp->revisionUserSettings()->value("Extensions/ScheduledForUninstall").toStringList() ||
-      d->PreviousExtensionsScheduledForUpdate
-      != coreApp->revisionUserSettings()->value("Extensions/ScheduledForUpdate").toMap())
-    {
-    shouldRestart = true;
-    }
-  this->setRestartRequested(shouldRestart);
+  d->updateButtons();
+}
+
+// --------------------------------------------------------------------------
+void qSlicerExtensionsManagerDialog::onBatchProcessingChanged()
+{
+  Q_D(qSlicerExtensionsManagerDialog);
+  d->updateButtons();
 }
 
 // --------------------------------------------------------------------------
@@ -211,4 +232,11 @@ void qSlicerExtensionsManagerDialog::reject()
     {
     Superclass::reject(); // close window
     }
+}
+
+// --------------------------------------------------------------------------
+void qSlicerExtensionsManagerDialog::setFocusToSearchBox()
+{
+  Q_D(qSlicerExtensionsManagerDialog);
+  d->ExtensionsManagerWidget->setFocusToSearchBox();
 }

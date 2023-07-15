@@ -21,8 +21,8 @@ public:
   vtkTypeMacro(vtkHTTPHandler, vtkURIHandler);
   void PrintSelf(ostream& os, vtkIndent indent) override;
 
-  /// This methods returns 1 if the handler matches the uri's required
-  /// protocol and returns 0 if it's not appropriate for the uri.
+  /// This methods returns 1 if the handler matches the URI's required
+  /// protocol and returns 0 if it's not appropriate for the URI.
   int CanHandleURI ( const char *uri ) override;
 
   /// Some web servers don't handle 'keep alive' socket transactions
@@ -40,6 +40,10 @@ public:
   void InitTransfer () override;
   int CloseTransfer () override;
 
+  /// CA Certificates path for https protocol.
+  vtkSetStringMacro(CaCertificatesPath);
+  vtkGetStringMacro(CaCertificatesPath);
+
 protected:
   vtkHTTPHandler();
   ~vtkHTTPHandler() override;
@@ -49,6 +53,7 @@ protected:
 private:
   class vtkInternal;
   vtkInternal* Internal;
+  char* CaCertificatesPath{nullptr};
 };
 
 #endif

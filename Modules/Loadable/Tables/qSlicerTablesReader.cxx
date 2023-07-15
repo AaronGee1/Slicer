@@ -33,6 +33,7 @@
 #include "vtkSlicerTablesLogic.h"
 
 // MRML includes
+#include <vtkMRMLMessageCollection.h>
 #include <vtkMRMLScene.h>
 #include <vtkMRMLSelectionNode.h>
 #include <vtkMRMLTableNode.h>
@@ -108,12 +109,27 @@ QStringList qSlicerTablesReader::extensions()const
     ;
 }
 
+//----------------------------------------------------------------------------
+double qSlicerTablesReader::canLoadFileConfidence(const QString& fileName)const
+{
+  double confidence = Superclass::canLoadFileConfidence(fileName);
+
+  // .txt file is more likely a simple text file than a table
+  if (confidence > 0 && fileName.toUpper().endsWith("TXT"))
+    {
+    confidence = 0.4;
+    }
+  return confidence;
+}
+
 //-----------------------------------------------------------------------------
 bool qSlicerTablesReader::load(const IOProperties& properties)
 {
   Q_D(qSlicerTablesReader);
   Q_ASSERT(properties.contains("fileName"));
   QString fileName = properties["fileName"].toString();
+
+  this->userMessages()->ClearMessages();
 
   QString name = QFileInfo(fileName).baseName();
   if (properties.contains("name"))
@@ -127,7 +143,8 @@ bool qSlicerTablesReader::load(const IOProperties& properties)
   std::string extension = vtkMRMLStorageNode::GetLowercaseExtensionFromFileName(fileName.toStdString());
   if( extension.empty() )
     {
-    qCritical("ReadData: no file extension specified: %s", qPrintable(fileName));
+    this->userMessages()->AddMessage(vtkCommand::ErrorEvent,
+      (tr("Table reading failed: no file extension specified: %1").arg(fileName)).toStdString());
     return false;
     }
   if (   !extension.compare(".db")
@@ -155,7 +172,7 @@ bool qSlicerTablesReader::load(const IOProperties& properties)
   vtkMRMLTableNode* node = nullptr;
   if (d->Logic!=nullptr)
     {
-    node = d->Logic->AddTable(fileName.toUtf8(),uname.c_str(), true, password.c_str());
+    node = d->Logic->AddTable(fileName.toUtf8(),uname.c_str(), true, password.c_str(), this->userMessages());
     }
   if (node)
     {
@@ -174,7 +191,8 @@ bool qSlicerTablesReader::load(const IOProperties& properties)
     }
   else
     {
-    qCritical("Failed to read table from %s", qPrintable(fileName));
+    this->userMessages()->AddMessage(vtkCommand::ErrorEvent,
+      (tr("Failed to read table from  '%1'").arg(fileName)).toStdString());
     this->setLoadedNodes(QStringList());
     }
   return node != nullptr;

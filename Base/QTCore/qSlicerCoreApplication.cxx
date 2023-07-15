@@ -30,24 +30,31 @@
 #include <QNetworkProxyFactory>
 #include <QResource>
 #include <QSettings>
+#include <QSslConfiguration>
 #include <QTranslator>
 #include <QStandardPaths>
 #include <QTemporaryFile>
 
 // For:
-//  - Slicer_QTLOADABLEMODULES_LIB_DIR
-//  - Slicer_CLIMODULES_BIN_DIR
-//  - Slicer_LIB_DIR
-//  - Slicer_SHARE_DIR
-//  - Slicer_USE_PYTHONQT
-//  - Slicer_BUILD_EXTENSIONMANAGER_SUPPORT
-//  - Slicer_BUILD_WIN32_CONSOLE
+//  - Slicer_BIN_DIR
+//  - Slicer_BUILD_APPLICATIONUPDATE_SUPPORT
 //  - Slicer_BUILD_CLI_SUPPORT
+//  - Slicer_BUILD_DICOM_SUPPORT
+//  - Slicer_BUILD_EXTENSIONMANAGER_SUPPORT
 //  - Slicer_BUILD_I18N_SUPPORT
+//  - Slicer_BUILD_WIN32_CONSOLE
+//  - Slicer_BUNDLE_LOCATION
+//  - Slicer_CLIMODULES_BIN_DIR
+//  - Slicer_EXTENSIONS_DIRBASENAME
+//  - Slicer_MAIN_PROJECT_APPLICATION_NAME
 //  - Slicer_ORGANIZATION_DOMAIN
 //  - Slicer_ORGANIZATION_NAME
-//  - SLICER_REVISION_SPECIFIC_USER_SETTINGS_FILEBASENAME
+//  - Slicer_QM_DIR
+//  - Slicer_QM_OUTPUT_DIRS
+//  - Slicer_SHARE_DIR
 //  - Slicer_STORE_SETTINGS_IN_APPLICATION_HOME_DIR
+//  - Slicer_USE_PYTHONQT
+//  - Slicer_USE_PYTHONQT_WITH_OPENSSL
 #include "vtkSlicerConfigure.h"
 
 #ifdef Slicer_USE_PYTHONQT
@@ -70,6 +77,9 @@
 #endif
 #ifdef Slicer_BUILD_EXTENSIONMANAGER_SUPPORT
 # include "qSlicerExtensionsManagerModel.h"
+#endif
+#ifdef Slicer_BUILD_APPLICATIONUPDATE_SUPPORT
+# include "qSlicerApplicationUpdateManager.h"
 #endif
 #include "qSlicerLoadableModuleFactory.h"
 #include "qSlicerModuleFactoryManager.h"
@@ -110,8 +120,22 @@
 // VTKAddon includes
 #include <vtkPersonInformation.h>
 
-// Slicer includes
-#include "vtkSlicerVersionConfigure.h" // For Slicer_VERSION_{MINOR, MAJOR}, Slicer_VERSION_FULL
+// For:
+//  - Slicer_ARCHITECTURE
+//  - Slicer_MAIN_PROJECT_REVISION
+//  - Slicer_MAIN_PROJECT_VERSION_MAJOR
+//  - Slicer_MAIN_PROJECT_VERSION_MINOR
+//  - Slicer_MAIN_PROJECT_VERSION_PATCH
+//  - Slicer_MAIN_PROJECT_WC_REVISION
+//  - Slicer_MAIN_PROJECT_WC_URL
+//  - Slicer_OS
+//  - Slicer_RELEASE_TYPE
+//  - Slicer_REVISION
+//  - Slicer_VERSION_MAJOR
+//  - Slicer_VERSION_MINOR
+//  - Slicer_WC_REVISION
+//  - Slicer_WC_URL
+#include "vtkSlicerVersionConfigure.h"
 
 #ifdef Slicer_BUILD_DICOM_SUPPORT
 // XXX Avoid  warning: "HAVE_XXXX" redefined
@@ -218,9 +242,10 @@ void qSlicerCoreApplicationPrivate::init()
   // allow a debugger to be attached during startup
   if(qApp->arguments().contains("--attach-process"))
     {
-    QString msg("This message box is here to give you time to attach "
+    // Message for developers - do not translate.
+    QString msg(/*no tr*/"This message box is here to give you time to attach "
                 "your debugger to process [PID %1]");
-    QMessageBox::information(nullptr, "Attach process", msg.arg(QCoreApplication::applicationPid()));
+    QMessageBox::information(nullptr, /*no tr*/"Attach process", msg.arg(QCoreApplication::applicationPid()));
     }
 
   QCoreApplication::setOrganizationDomain(Slicer_ORGANIZATION_DOMAIN);
@@ -290,7 +315,7 @@ void qSlicerCoreApplicationPrivate::init()
     {
     qWarning() << "[SSL] SSL support disabled - Failed to load SSL library !";
     }
-  if (!qSlicerCoreApplication::loadCaCertificates(this->SlicerHome))
+  if (!qSlicerCoreApplication::loadCaCertificates(qSlicerCoreApplication::caCertificatesPath(this->SlicerHome)))
     {
     qWarning() << "[SSL] Failed to load Slicer.crt";
     }
@@ -321,10 +346,12 @@ void qSlicerCoreApplicationPrivate::init()
 
   // Create callback function that allows invoking VTK object modified requests from any thread.
   // This is used for example in MRMLIDImageIO to indicate that image update is completed.
-  vtkNew<vtkCallbackCommand> modifiedRequestCallback;
-  modifiedRequestCallback->SetClientData(this->AppLogic);
-  modifiedRequestCallback->SetCallback(vtkSlicerApplicationLogic::RequestModifiedCallback);
-  vtkEventBroker::GetInstance()->SetRequestModifiedCallback(modifiedRequestCallback);
+  { // placed in a block to avoid memory leaks on quick exit at handlePreApplicationCommandLineArguments
+    vtkNew<vtkCallbackCommand> modifiedRequestCallback;
+    modifiedRequestCallback->SetClientData(this->AppLogic);
+    modifiedRequestCallback->SetCallback(vtkSlicerApplicationLogic::RequestModifiedCallback);
+    vtkEventBroker::GetInstance()->SetRequestModifiedCallback(modifiedRequestCallback);
+  }
 
   // Ensure that temporary folder is writable
   {
@@ -403,6 +430,8 @@ void qSlicerCoreApplicationPrivate::init()
   q->connect(q, SIGNAL(mrmlSceneChanged(vtkMRMLScene*)),
                  this->ModuleManager->factoryManager(), SLOT(setMRMLScene(vtkMRMLScene*)));
 
+  // The application may exit here immediately if a simple command is specified on the
+  // command-line (for example `--version` prints the version information and quits).
   q->handlePreApplicationCommandLineArguments();
 
 #ifdef Slicer_USE_PYTHONQT
@@ -422,7 +451,6 @@ void qSlicerCoreApplicationPrivate::init()
 
   qSlicerExtensionsManagerModel * model = new qSlicerExtensionsManagerModel(q);
   model->setExtensionsSettingsFilePath(q->slicerRevisionUserSettingsFilePath());
-  model->setExtensionsHistorySettingsFilePath(q->slicerUserSettingsFilePath());
   model->setSlicerRequirements(q->revision(), q->os(), q->arch());
   q->setExtensionsManagerModel(model);
 
@@ -444,6 +472,29 @@ void qSlicerCoreApplicationPrivate::init()
 
   this->createDirectory(q->extensionsInstallPath(), "extensions"); // Make sure the path exists
 
+  this->ApplicationLocaleName = "en_US";
+  this->ApplicationLocale = QLocale(this->ApplicationLocaleName);
+#ifdef Slicer_BUILD_I18N_SUPPORT
+  if (q->userSettings()->value("Internationalization/Enabled").toBool())
+    {
+    QString localeName = q->userSettings()->value("language", this->ApplicationLocaleName).toString();
+    if (!localeName.isEmpty())
+      {
+      this->ApplicationLocaleName = localeName;
+      this->ApplicationLocale = QLocale(this->ApplicationLocaleName);
+      }
+    // We load the language selected for the application
+    qSlicerCoreApplication::loadLanguage();
+    }
+#endif
+
+  // Prevent extensions manager model from displaying popups during startup (don't ask for confirmation)
+  bool wasInteractive = model->interactive();
+  model->setInteractive(false);
+
+  // If auto-update is disabled then this will not contact the server
+  model->updateExtensionsMetadataFromServer();
+
   model->updateModel();
 
   QStringList updatedExtensions;
@@ -460,6 +511,20 @@ void qSlicerCoreApplicationPrivate::init()
     qDebug() << "Successfully uninstalled extension" << extensionName;
     }
 
+  if (model->autoUpdateCheck())
+    {
+    // The latest metadata updates may not be available yet (because
+    // model->updateExtensionsMetadataFromServer() has just been called)
+    // but next time the application is started the metadata will be up-to-date.
+    model->checkForExtensionsUpdates();
+    }
+
+  model->setInteractive(wasInteractive);
+
+  // Indicate that there are no more changes to the extensions
+  // and they will be loaded using current settings.
+  model->aboutToLoadExtensions();
+
   // Set the list of installed extensions in the scene so that we can warn the user
   // if the scene is loaded with some of the extensions not present.
   QString extensionList = model->installedExtensions().join(";");
@@ -467,10 +532,33 @@ void qSlicerCoreApplicationPrivate::init()
 
 #endif
 
-  if (q->userSettings()->value("Internationalization/Enabled").toBool())
+#ifdef Slicer_BUILD_APPLICATIONUPDATE_SUPPORT
+  qSlicerApplicationUpdateManager* applicationUpdateManager = new qSlicerApplicationUpdateManager(q);
+  applicationUpdateManager->setSlicerRequirements(q->revision(), q->os(), q->arch());
+  q->setapplicationUpdateManager(applicationUpdateManager);
+  if (applicationUpdateManager->autoUpdateCheck())
     {
-    // We load the language selected for the application
-    qSlicerCoreApplication::loadLanguage();
+    applicationUpdateManager->checkForUpdate();
+    }
+#endif
+
+  // Default VTK fonts do not support Chinese characters. Allow setting custom font files from application settings.
+  // Slicer core does not provide GUI to set these fonts yet, but extensions (e.g, LanguagePacks) can provide modules
+  // to edit these settings and/or set font files automatically based on the chosen language.
+  QString viewsFontFileSansSerif = q->userSettings()->value("Views/FontFile/SansSerif").toString();
+  QString viewsFontFileMonospaced = q->userSettings()->value("Views/FontFile/Monospaced").toString();
+  QString viewsFontFileSerif = q->userSettings()->value("Views/FontFile/Serif").toString();
+  if (!viewsFontFileSansSerif.isEmpty())
+    {
+    this->AppLogic->SetFontFileName(VTK_ARIAL, viewsFontFileSansSerif.toStdString());
+    }
+  if (!viewsFontFileMonospaced.isEmpty())
+    {
+    this->AppLogic->SetFontFileName(VTK_COURIER, viewsFontFileMonospaced.toStdString());
+    }
+  if (!viewsFontFileSerif.isEmpty())
+    {
+    this->AppLogic->SetFontFileName(VTK_TIMES, viewsFontFileSerif.toStdString());
     }
 
   q->connect(q, SIGNAL(aboutToQuit()), q, SLOT(onAboutToQuit()));
@@ -507,6 +595,8 @@ void qSlicerCoreApplicationPrivate::initDataIO()
 
   // Create MRMLRemoteIOLogic
   this->MRMLRemoteIOLogic = vtkSmartPointer<vtkMRMLRemoteIOLogic>::New();
+
+  this->MRMLRemoteIOLogic->SetCaCertificatesPath(q->caCertificatesPath(this->SlicerHome).toStdString().c_str());
 
   // Ensure cache folder is writable
   {
@@ -701,11 +791,11 @@ QString qSlicerCoreApplicationPrivate::defaultExtensionsInstallPathForMacOSX()co
     {
     QDir slicerHomeDir(q->slicerHome());
     slicerHomeDir.cdUp();
-    return slicerHomeDir.absolutePath() + "/Contents/" Slicer_EXTENSIONS_DIRNAME;
+    return slicerHomeDir.absolutePath() + "/Contents/" Slicer_EXTENSIONS_DIRBASENAME "-" Slicer_REVISION;
     }
   else
     {
-    return q->slicerHome() + "/bin/" Slicer_BUNDLE_LOCATION "/" Slicer_EXTENSIONS_DIRNAME;
+    return q->slicerHome() + "/bin/" Slicer_BUNDLE_LOCATION "/" Slicer_EXTENSIONS_DIRBASENAME "-" Slicer_REVISION;
     }
 }
 #endif
@@ -1068,7 +1158,8 @@ void qSlicerCoreApplication::handleCommandLineArguments()
     scriptArgs.removeAll("--attach-process");
     if(!extraPythonScript.isEmpty())
       {
-      scriptArgs.removeFirst();
+      // Remove extra Python script processed arguments  (e.g -I /path/to/script.py)
+      scriptArgs.erase(scriptArgs.begin(), scriptArgs.begin() + options->extraPythonScriptProcessedArgumentsCount());
       pythonScript = extraPythonScript;
       }
 
@@ -1240,7 +1331,7 @@ void qSlicerCoreApplication::setMRMLScene(vtkMRMLScene* newMRMLScene)
 
     // First scene needs a crosshair to be added manually
     vtkNew<vtkMRMLCrosshairNode> crosshair;
-    crosshair->SetCrosshairName("default");
+    crosshair->SetCrosshairName(/*no tr*/"default");
     newMRMLScene->AddNode(crosshair.GetPointer());
     }
 
@@ -1344,9 +1435,9 @@ QString qSlicerCoreApplication::defaultCachePath() const
   // The returned path is never empty.
   //
   // Examples:
-  // - Windows: C:/Users/username/AppData/Local/NA-MIC/Slicer/cache
-  // - Linux: /home/username/.cache/NA-MIC/Slicer
-  // - macOS: /Users/username/Library/Caches/NA-MIC/Slicer
+  // - Windows: C:/Users/username/AppData/Local/slicer.org/Slicer/cache
+  // - Linux: /home/username/.cache/slicer.org/Slicer
+  // - macOS: /Users/username/Library/Caches/slicer.org/Slicer
   //
   // This is already a user and application specific folder, but various software components
   // may place files there (e.g., QWebEngine), therefore we create a subfolder (SlicerIO)
@@ -1481,7 +1572,7 @@ void qSlicerCoreApplication::setTemporaryPath(const QString& path)
 QString qSlicerCoreApplication::defaultExtensionsInstallPath() const
 {
 #ifdef Slicer_BUILD_EXTENSIONMANAGER_SUPPORT
-  return QFileInfo(this->slicerRevisionUserSettingsFilePath()).dir().filePath(Slicer_EXTENSIONS_DIRNAME);
+  return QFileInfo(this->slicerRevisionUserSettingsFilePath()).dir().filePath(Slicer_EXTENSIONS_DIRBASENAME "-" Slicer_REVISION);
 #else
   return QString();
 #endif
@@ -1507,14 +1598,6 @@ void qSlicerCoreApplication::setExtensionsInstallPath(const QString& path)
 #ifdef Slicer_BUILD_EXTENSIONMANAGER_SUPPORT
   Q_ASSERT(this->extensionsManagerModel());
   this->extensionsManagerModel()->updateModel();
-#endif
-}
-
-//-----------------------------------------------------------------------------
-void qSlicerCoreApplication::gatherExtensionsHistoryInformationOnStartup()
-{
-#ifdef Slicer_BUILD_EXTENSIONMANAGER_SUPPORT
-  this->extensionsManagerModel()->gatherExtensionsHistoryInformationOnStartup();
 #endif
 }
 
@@ -1565,6 +1648,24 @@ qSlicerExtensionsManagerModel* qSlicerCoreApplication::extensionsManagerModel()c
 {
   Q_D(const qSlicerCoreApplication);
   return d->ExtensionsManagerModel.data();
+}
+
+#endif
+
+#ifdef Slicer_BUILD_APPLICATIONUPDATE_SUPPORT
+
+//-----------------------------------------------------------------------------
+void qSlicerCoreApplication::setapplicationUpdateManager(qSlicerApplicationUpdateManager* updateManager)
+{
+  Q_D(qSlicerCoreApplication);
+  d->ApplicationUpdateManager = QSharedPointer<qSlicerApplicationUpdateManager>(updateManager);
+}
+
+//-----------------------------------------------------------------------------
+qSlicerApplicationUpdateManager* qSlicerCoreApplication::applicationUpdateManager()const
+{
+  Q_D(const qSlicerCoreApplication);
+  return d->ApplicationUpdateManager.data();
 }
 
 #endif
@@ -1663,8 +1764,8 @@ int qSlicerCoreApplication::mainApplicationPatchVersion()const
 QString qSlicerCoreApplication::libraries()const
 {
   QString librariesText(
-    "Built on top of: "
-    "<a href=\"https://www.vtk.org/\">VTK</a>, "
+    tr("Built on top of:") +
+    " <a href=\"https://www.vtk.org/\">VTK</a>, "
     "<a href=\"https://www.itk.org/\">ITK</a>, "
     "<a href=\"https://www.commontk.org/index.php/Main_Page\">CTK</a>, "
     "<a href=\"https://www.qt.io/\">Qt</a>, "
@@ -1677,26 +1778,29 @@ QString qSlicerCoreApplication::libraries()const
 //-----------------------------------------------------------------------------
 QString qSlicerCoreApplication::copyrights()const
 {
-  QString copyrightsText(
+  QString copyrightsText(QString(
     "<table align=\"center\" border=\"0\" width=\"80%\"><tr>"
-    "<td align=\"center\"><a href=\"https://slicer.readthedocs.io/en/latest/user_guide/about.html#license\">Licensing Information</a></td>"
-    "<td align=\"center\"><a href=\"https://slicer.org/\">Website</a></td>"
-    "<td align=\"center\"><a href=\"https://slicer.readthedocs.io/en/latest/user_guide/about.html#acknowledgments\">Acknowledgments</a></td>"
-    "</tr></table>");
+    "<td align=\"center\"><a href=\"https://slicer.readthedocs.io/en/latest/user_guide/about.html#license\">%1</a></td>"
+    "<td align=\"center\"><a href=\"https://slicer.org/\">%2</a></td>"
+    "<td align=\"center\"><a href=\"https://slicer.readthedocs.io/en/latest/user_guide/about.html#acknowledgments\">%3</a></td>"
+    "</tr></table>")
+    .arg(tr("Licensing Information"))
+    .arg(tr("Website"))
+    .arg(tr("Acknowledgments")));
   return copyrightsText;
 }
 //-----------------------------------------------------------------------------
 QString qSlicerCoreApplication::acknowledgment()const
 {
   QString acknowledgmentText(
-    "Slicer is NOT an FDA approved medical device.<br /><br />"
-    "Supported by: NA-MIC, NAC, BIRN, NCIGT and the Slicer Community.<br /><br />"
-    "Special thanks to the NIH and our other supporters.<br /><br />"
+    tr("Slicer is NOT an FDA approved medical device.<br><br>"
+    "Supported by: NA-MIC, NAC, BIRN, NCIGT and the Slicer Community.<br><br>"
+    "Special thanks to the NIH and our other supporters.<br><br>"
     "This work is part of the National Alliance for Medical Image Computing "
     "(NA-MIC), funded by the National Institutes of Health through the NIH "
     "Roadmap for Medical Research, Grant U54 EB005149. Information on the "
-    "National Centers for Biomedical Computing can be obtained from "
-    "<a href=\"https://commonfund.nih.gov/bioinformatics\">https://commonfund.nih.gov/bioinformatics</a>.<br /><br />");
+    "National Centers for Biomedical Computing can be obtained from"
+    "<a href=\"https://commonfund.nih.gov/bioinformatics\">https://commonfund.nih.gov/bioinformatics</a>.<br><br>"));
   return acknowledgmentText;
 }
 
@@ -1928,7 +2032,7 @@ void qSlicerCoreApplication::onAboutToQuit()
 
 #ifdef Slicer_USE_PYTHONQT
   // Override return code only if testing mode is enabled
-  if (this->corePythonManager()->pythonErrorOccured() && this->coreCommandOptions()->isTestingEnabled())
+  if (this->corePythonManager()->pythonErrorOccured() && this->testAttribute(AA_EnableTesting))
     {
     d->ReturnCode = qSlicerCoreApplication::ExitFailure;
     }
@@ -1942,7 +2046,7 @@ void qSlicerCoreApplication::loadTranslations(const QString& dir)
   qSlicerCoreApplication * app = qSlicerCoreApplication::application();
   Q_ASSERT(app);
 
-  QStringList qmFiles = qSlicerCoreApplicationPrivate::findTranslationFiles(dir, app->settings()->value("language").toString());
+  QStringList qmFiles = qSlicerCoreApplicationPrivate::findTranslationFiles(dir, app->applicationLocaleName());
 
   foreach(QString qmFile, qmFiles)
     {
@@ -2004,20 +2108,26 @@ void qSlicerCoreApplication::loadLanguage()
 }
 
 //----------------------------------------------------------------------------
-bool qSlicerCoreApplication::loadCaCertificates(const QString& slicerHome)
+bool qSlicerCoreApplication::loadCaCertificates(const QString& caCertificatesPath)
 {
 #ifdef Slicer_USE_PYTHONQT_WITH_OPENSSL
   if (QSslSocket::supportsSsl())
     {
-    QSslSocket::setDefaultCaCertificates(
-          QSslCertificate::fromPath(
-            slicerHome + "/" Slicer_SHARE_DIR "/Slicer.crt"));
+    QSslConfiguration sslConfiguration = QSslConfiguration::defaultConfiguration();
+    sslConfiguration.setCaCertificates(QSslCertificate::fromPath(caCertificatesPath));
+    QSslConfiguration::setDefaultConfiguration(sslConfiguration);
     }
-  return !QSslSocket::defaultCaCertificates().empty();
+  return !QSslConfiguration::defaultConfiguration().caCertificates().empty();
 #else
-  Q_UNUSED(slicerHome);
+  Q_UNUSED(caCertificatesPath);
   return false;
 #endif
+}
+
+//----------------------------------------------------------------------------
+QString qSlicerCoreApplication::caCertificatesPath(const QString& slicerHome)
+{
+  return QString("%1/%2/Slicer.crt").arg(slicerHome).arg(Slicer_SHARE_DIR);
 }
 
 //----------------------------------------------------------------------------
@@ -2173,8 +2283,8 @@ QString qSlicerCoreApplication::documentationBaseUrl() const
 // --------------------------------------------------------------------------
 QString qSlicerCoreApplication::documentationVersion() const
 {
-  QString version = "latest";
-  if (this->releaseType() == "Stable")
+  QString version = /*no tr*/"latest";
+  if (this->releaseType() == /*no tr*/"Stable")
     {
     version = QString("v%1.%2").arg(this->mainApplicationMajorVersion()).arg(this->mainApplicationMinorVersion());
     }
@@ -2184,12 +2294,21 @@ QString qSlicerCoreApplication::documentationVersion() const
 // --------------------------------------------------------------------------
 QString qSlicerCoreApplication::documentationLanguage() const
 {
-  QString language = "en";
-  if (this->userSettings()->value("Internationalization/Enabled", false).toBool())
-    {
-    language = this->userSettings()->value("language", language).toString();
-    }
-  return language;
+  return this->applicationLocaleName();
+}
+
+// --------------------------------------------------------------------------
+QString qSlicerCoreApplication::applicationLocaleName() const
+{
+  Q_D(const qSlicerCoreApplication);
+  return d->ApplicationLocaleName;
+}
+
+// --------------------------------------------------------------------------
+QLocale qSlicerCoreApplication::applicationLocale() const
+{
+  Q_D(const qSlicerCoreApplication);
+  return d->ApplicationLocale;
 }
 
 // --------------------------------------------------------------------------

@@ -111,9 +111,12 @@ struct BlendPipeline
 
     this->AddSubForegroundCast->SetOutputScalarTypeToShort();
     this->AddSubBackgroundCast->SetOutputScalarTypeToShort();
+    this->ForegroundFractionMath->SetConstantK(1.0);
+    this->ForegroundFractionMath->SetOperationToMultiplyByK();
+    this->ForegroundFractionMath->SetInputConnection(0, this->AddSubForegroundCast->GetOutputPort());
     this->AddSubMath->SetOperationToAdd();
     this->AddSubMath->SetInputConnection(0, this->AddSubBackgroundCast->GetOutputPort());
-    this->AddSubMath->SetInputConnection(1, this->AddSubForegroundCast->GetOutputPort());
+    this->AddSubMath->SetInputConnection(1, this->ForegroundFractionMath->GetOutputPort());
     this->AddSubOutputCast->SetInputConnection(this->AddSubMath->GetOutputPort());
 
     this->AddSubExtractRGB->SetInputConnection(this->AddSubOutputCast->GetOutputPort());
@@ -188,6 +191,7 @@ struct BlendPipeline
   vtkNew<vtkImageCast> AddSubForegroundCast;
   vtkNew<vtkImageCast> AddSubBackgroundCast;
   vtkNew<vtkImageMathematics> AddSubMath;
+  vtkNew<vtkImageMathematics> ForegroundFractionMath;
   vtkNew<vtkImageExtractComponents> AddSubExtractRGB;
   vtkNew<vtkImageExtractComponents> AddSubExtractAlpha;
   vtkNew<vtkImageAppendComponents> AddSubAppendRGBA;
@@ -462,6 +466,10 @@ void vtkMRMLSliceLogic::OnMRMLNodeModified(vtkMRMLNode* node)
       sliceDisplayNode->SetVisibility( this->SliceNode->GetSliceVisible() );
       sliceDisplayNode->SetViewNodeIDs( this->SliceNode->GetThreeDViewIDs());
       }
+
+    vtkMRMLSliceLogic::UpdateReconstructionSlab(this, this->GetBackgroundLayer());
+    vtkMRMLSliceLogic::UpdateReconstructionSlab(this, this->GetForegroundLayer());
+
     }
   else if (node == this->SliceCompositeNode)
     {
@@ -519,7 +527,8 @@ void vtkMRMLSliceLogic::ProcessMRMLLogicsEvents()
     {
     int *dims1=nullptr;
     int dims[3];
-    vtkMatrix4x4 *textureToRAS = nullptr;
+    vtkSmartPointer<vtkMatrix4x4> textureToRAS;
+    // If the slice resolution mode is not set to match the 2D view, use UVW dimensions
     if (this->SliceNode->GetSliceResolutionMode() != vtkMRMLSliceNode::SliceResolutionMatch2DView)
       {
       textureToRAS = this->SliceNode->GetUVWToRAS();
@@ -527,9 +536,25 @@ void vtkMRMLSliceLogic::ProcessMRMLLogicsEvents()
       dims[0] = dims1[0]-1;
       dims[1] = dims1[1]-1;
       }
-    else
+    else // If the slice resolution mode is set to match the 2D view, use texture computed by slice view
       {
-      textureToRAS = this->SliceNode->GetXYToRAS();
+      // Create a new textureToRAS matrix with translation to correct texture pixel origin
+      //
+      // Since the OpenGL texture pixel origin is in the pixel corner and the
+      // VTK pixel origin is in the pixel center, we need to shift the coordinate
+      // by half voxel.
+      //
+      // Considering that the translation matrix is almost an identity matrix, the
+      // computation easily and efficiently performed by elementary operations on
+      // the matrix elements.
+      textureToRAS = vtkSmartPointer<vtkMatrix4x4>::New();
+      textureToRAS->DeepCopy(this->SliceNode->GetXYToRAS());
+      textureToRAS->SetElement(0, 3, textureToRAS->GetElement(0, 3)
+        - 0.5 * textureToRAS->GetElement(0, 0) - 0.5 * textureToRAS->GetElement(0, 1)); // Shift by half voxel
+      textureToRAS->SetElement(1, 3, textureToRAS->GetElement(1, 3)
+        - 0.5 * textureToRAS->GetElement(1, 0) - 0.5 * textureToRAS->GetElement(1, 1)); // Shift by half voxel
+
+      // Use XY dimensions for slice node if resolution mode is set to match 2D view
       dims1 = this->SliceNode->GetDimensions();
       dims[0] = dims1[0];
       dims[1] = dims1[1];
@@ -939,6 +964,52 @@ bool vtkMRMLSliceLogic::UpdateBlendLayers(vtkImageBlend* blend, const std::deque
 }
 
 //----------------------------------------------------------------------------
+bool vtkMRMLSliceLogic::UpdateFractions(vtkImageMathematics* fraction, double opacity)
+{
+  vtkMTimeType oldMTime = fraction->GetMTime();
+  fraction->SetConstantK(opacity);
+  bool modified = (fraction->GetMTime() > oldMTime);
+  return modified;
+}
+
+//----------------------------------------------------------------------------
+void vtkMRMLSliceLogic::UpdateReconstructionSlab(vtkMRMLSliceLogic* sliceLogic, vtkMRMLSliceLayerLogic* sliceLayerLogic)
+{
+  if (!sliceLogic || !sliceLayerLogic || !sliceLogic->GetSliceNode())
+    {
+    return;
+    }
+
+  vtkImageReslice* reslice = sliceLayerLogic->GetReslice();
+  vtkMRMLSliceNode* sliceNode = sliceLayerLogic->GetSliceNode();
+
+  double sliceSpacing;
+  if (sliceNode->GetSliceSpacingMode() == vtkMRMLSliceNode::PrescribedSliceSpacingMode)
+    {
+    sliceSpacing = sliceNode->GetPrescribedSliceSpacing()[2];
+    }
+  else
+    {
+    sliceSpacing = sliceLogic->GetLowestVolumeSliceSpacing()[2];
+    }
+
+  int slabNumberOfSlices = 1;
+  if (sliceNode->GetSlabReconstructionEnabled()
+      && sliceSpacing > 0
+      && sliceNode->GetSlabReconstructionThickness() > sliceSpacing
+      )
+    {
+    slabNumberOfSlices = static_cast<int>(sliceNode->GetSlabReconstructionThickness() / sliceSpacing);
+    }
+  reslice->SetSlabNumberOfSlices(slabNumberOfSlices);
+
+  reslice->SetSlabMode(sliceNode->GetSlabReconstructionType());
+
+  double slabSliceSpacingFraction = sliceSpacing / sliceNode->GetSlabReconstructionOversamplingFactor();
+  reslice->SetSlabSliceSpacingFraction(slabSliceSpacingFraction);
+}
+
+//----------------------------------------------------------------------------
 void vtkMRMLSliceLogic::UpdatePipeline()
 {
   int modified = 0;
@@ -1033,6 +1104,16 @@ void vtkMRMLSliceLogic::UpdatePipeline()
     this->PipelineUVW->AddLayers(layersUVW, this->SliceCompositeNode->GetCompositing(),
       backgroundImagePortUVW, foregroundImagePortUVW, this->SliceCompositeNode->GetForegroundOpacity(),
       labelImagePortUVW, this->SliceCompositeNode->GetLabelOpacity());
+
+    // Check fraction changes for add/subtract pipeline
+    if (this->UpdateFractions(this->Pipeline->ForegroundFractionMath.GetPointer(), this->SliceCompositeNode->GetForegroundOpacity()))
+    {
+      modified = 1;
+    }
+    if (this->UpdateFractions(this->PipelineUVW->ForegroundFractionMath.GetPointer(), this->SliceCompositeNode->GetForegroundOpacity()))
+    {
+      modified = 1;
+    }
 
     if (this->UpdateBlendLayers(this->Pipeline->Blend.GetPointer(), layers))
       {
@@ -1750,31 +1831,14 @@ void vtkMRMLSliceLogic::ResizeSliceNode(double newWidth, double newHeight)
   newWidth /= this->SliceNode->GetLayoutGridColumns();
   newHeight /= this->SliceNode->GetLayoutGridRows();
 
-  // The following was previously in SliceSWidget.tcl
-  double sliceStep = this->SliceSpacing[2];
   int oldDimensions[3];
   this->SliceNode->GetDimensions(oldDimensions);
   double oldFOV[3];
   this->SliceNode->GetFieldOfView(oldFOV);
-
-  double scalingX = (newWidth != 0 && oldDimensions[0] != 0 ? newWidth / oldDimensions[0] : 1.);
-  double scalingY = (newHeight != 0 && oldDimensions[1] != 0 ? newHeight / oldDimensions[1] : 1.);
-
-  double magnitudeX = (scalingX >= 1. ? scalingX : 1. / scalingX);
-  double magnitudeY = (scalingY >= 1. ? scalingY : 1. / scalingY);
-
   double newFOV[3];
-  if (magnitudeX < magnitudeY)
-    {
-    newFOV[0] = oldFOV[0];
-    newFOV[1] = oldFOV[1] * scalingY / scalingX;
-    }
-  else
-    {
-    newFOV[0] = oldFOV[0] * scalingX / scalingY;
-    newFOV[1] = oldFOV[1];
-    }
-  newFOV[2] = sliceStep * oldDimensions[2];
+  newFOV[0] = oldFOV[0];
+  newFOV[1] = oldFOV[1];
+  newFOV[2] = this->SliceSpacing[2] * oldDimensions[2];
   double windowAspect = (newWidth != 0. ? newHeight / newWidth : 1.);
   double planeAspect = (newFOV[0] != 0. ? newFOV[1] / newFOV[0] : 1.);
   if (windowAspect != planeAspect)
@@ -2422,56 +2486,27 @@ int vtkMRMLSliceLogic::GetEditableLayerAtWorldPosition(double worldPos[3],
     return vtkMRMLSliceLogic::LayerNone;
     }
 
-  bool foregroundEditable = this->VolumeWindowLevelEditable(sliceCompositeNode->GetForegroundVolumeID())
-    && foregroundVolumeEditable;
-  bool backgroundEditable = this->VolumeWindowLevelEditable(sliceCompositeNode->GetBackgroundVolumeID())
-    && backgroundVolumeEditable;
-
-  if (!foregroundEditable && !backgroundEditable)
+  if (!foregroundVolumeEditable && !backgroundVolumeEditable)
     {
     // window/level editing is disabled on both volumes
     return vtkMRMLSliceLogic::LayerNone;
     }
   // By default adjust background volume, if available
-  bool adjustForeground = !backgroundEditable;
+  bool adjustForeground = !backgroundVolumeEditable || !sliceCompositeNode->GetBackgroundVolumeID();
 
   // If both foreground and background volumes are visible then choose adjustment of
   // foreground volume, if foreground volume is visible in current mouse position
-  if (foregroundEditable && backgroundEditable)
+  if (sliceCompositeNode->GetBackgroundVolumeID() && sliceCompositeNode->GetForegroundVolumeID())
+  {
+    if (foregroundVolumeEditable && backgroundVolumeEditable)
     {
     adjustForeground = (sliceCompositeNode->GetForegroundOpacity() >= 0.01)
       && this->IsEventInsideVolume(true, worldPos)   // inside background (used as mask for displaying foreground)
       && this->vtkMRMLSliceLogic::IsEventInsideVolume(false, worldPos); // inside foreground
     }
+  }
 
   return (adjustForeground ? vtkMRMLSliceLogic::LayerForeground : vtkMRMLSliceLogic::LayerBackground);
-}
-
-//----------------------------------------------------------------------------
-bool vtkMRMLSliceLogic::VolumeWindowLevelEditable(const char* volumeNodeID)
-{
-  if (!volumeNodeID)
-    {
-    return false;
-    }
-  vtkMRMLScene *scene = this->GetMRMLScene();
-  if (!scene)
-    {
-    return false;
-    }
-  vtkMRMLVolumeNode* volumeNode =
-    vtkMRMLVolumeNode::SafeDownCast(scene->GetNodeByID(volumeNodeID));
-  if (volumeNode == nullptr)
-    {
-    return false;
-    }
-  vtkMRMLScalarVolumeDisplayNode* scalarVolumeDisplayNode =
-    vtkMRMLScalarVolumeDisplayNode::SafeDownCast(volumeNode->GetVolumeDisplayNode());
-  if (!scalarVolumeDisplayNode)
-    {
-    return false;
-    }
-  return !scalarVolumeDisplayNode->GetWindowLevelLocked();
 }
 
 //----------------------------------------------------------------------------
@@ -2512,7 +2547,9 @@ bool vtkMRMLSliceLogic::IsEventInsideVolume(bool background, double worldPos[3])
   volumeNode->GetImageData()->GetExtent(volumeExtent);
   for (int i = 0; i < 3; i++)
     {
-    if (ijkPos[i]<volumeExtent[i * 2] || ijkPos[i]>volumeExtent[i * 2 + 1])
+    // In VTK, the voxel coordinate refers to the center of the voxel and so the image bounds
+    // go beyond the position of the first and last voxels by half voxel. Therefore include 0.5 shift.
+    if (ijkPos[i] < volumeExtent[i * 2] - 0.5 || ijkPos[i] > volumeExtent[i * 2 + 1] + 0.5)
       {
       return false;
       }
@@ -2524,4 +2561,44 @@ bool vtkMRMLSliceLogic::IsEventInsideVolume(bool background, double worldPos[3])
 vtkMRMLSliceDisplayNode* vtkMRMLSliceLogic::GetSliceDisplayNode()
 {
   return vtkMRMLSliceDisplayNode::SafeDownCast(this->GetSliceModelDisplayNode());
+}
+
+
+//----------------------------------------------------------------------------
+bool vtkMRMLSliceLogic::GetSliceOffsetRangeResolution(double range[2], double& resolution)
+{
+  // Calculate the number of slices in the current range.
+  // Extent is between the farthest voxel centers (not voxel sides).
+  double sliceBounds[6] = {0, -1, 0, -1, 0, -1};
+  this->GetLowestVolumeSliceBounds(sliceBounds, true);
+
+  const double * sliceSpacing = this->GetLowestVolumeSliceSpacing();
+  if (!sliceSpacing)
+    {
+    range[0] = -1.0;
+    range[1] = 1.0;
+    resolution = 1.0;
+    return false;
+    }
+
+  // Set the scale increments to match the z spacing (rotated into slice space)
+  resolution = sliceSpacing ? sliceSpacing[2] : 1.0;
+
+  bool singleSlice = ((sliceBounds[5] - sliceBounds[4]) < resolution);
+  if (singleSlice)
+    {
+    // add one blank slice before and after the current slice to make the slider appear in the center when
+    // we are centered on the slice
+    double centerPos = (sliceBounds[4] + sliceBounds[5]) / 2.0;
+    range[0] = centerPos - resolution;
+    range[1] = centerPos + resolution;
+    }
+  else
+    {
+    // there are at least two slices in the range
+    range[0] = sliceBounds[4];
+    range[1] = sliceBounds[5];
+    }
+
+  return true;
 }

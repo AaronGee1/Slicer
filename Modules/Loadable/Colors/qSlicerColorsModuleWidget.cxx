@@ -269,11 +269,9 @@ void qSlicerColorsModuleWidget::onMRMLColorNodeChanged(vtkMRMLNode* newColorNode
     d->EditColorsCollapsibleButton->setText(tr("Continuous scale"));
 
     // set the color transfer function to the widget
-    d->ContinuousScalarsToColorsWidget->view()->setColorTransferFunctionToPlots(procColorNode->GetColorTransferFunction());
-
-    // only allow editing of user types
-    d->ContinuousScalarsToColorsWidget->setEnabled(
-        procColorNode->GetType() == vtkMRMLColorNode::User);
+    bool editable = procColorNode->GetType() == vtkMRMLColorNode::User; // only allow editing of user types
+    d->ContinuousScalarsToColorsWidget->view()->setColorTransferFunctionToPlots(procColorNode->GetColorTransferFunction(), editable);
+    d->ContinuousScalarsToColorsWidget->setEnabled(editable);
     }
   else
     {
@@ -413,6 +411,10 @@ void qSlicerColorsModuleWidget::createColorLegend()
     }
   vtkMRMLColorLegendDisplayNode* colorLegendDisplayNode =
     vtkSlicerColorLogic::AddDefaultColorLegendDisplayNode(d->DisplayableNode);
+  if (!colorLegendDisplayNode)
+    {
+    qWarning() << "createColorLegend: failed to add display node to scene";
+    }
 }
 
 //-----------------------------------------------------------

@@ -28,13 +28,13 @@
 #include "vtkSlicerMarkupsModuleMRMLExport.h"
 
 // VTK includes
+#include <vtkParallelTransportFrame.h>
 #include <vtkPointLocator.h>
 #include <vtkSmartPointer.h>
 #include <vtkVector.h>
 
 class vtkMatrix3x3;
 class vtkMRMLUnitNode;
-class vtkParallelTransportFrame;
 
 /// \brief Abstract base class to represent an interactive widget.
 ///
@@ -286,6 +286,8 @@ public:
 
   /// Return the number of control points that are stored in this node
   int GetNumberOfControlPoints();
+  /// Return the number of unlocked control points with defined position in this node
+  int GetNumberOfMovableControlPoints();
   /// Return the number of control points that are already placed (not being previewed or undefined).
   int GetNumberOfDefinedControlPoints(bool includePreview=false);
   /// Return the number of control points that have not been placed (not being previewed or skipped).
@@ -312,7 +314,7 @@ public:
   /// New control points are added if needed.
   /// Existing control points are updated with the new positions.
   /// Any extra existing control points are removed.
-  void SetControlPointPositionsWorld(vtkPoints* points);
+  void SetControlPointPositionsWorld(vtkPoints* points, bool setUndefinedPoints=true);
 
   /// Get a copy of all control point positions in world coordinate system
   void GetControlPointPositionsWorld(vtkPoints* points);
@@ -521,10 +523,19 @@ public:
   /// Get the id for the Nth control point
   std::string GetNthControlPointID(int n);
 
-  /// Get the Nth control point index based on it's ID
+  /// Get the Nth control point index based on it's ID.
+  /// Deprecated. Use GetControlPointIndexByID instead.
   int GetNthControlPointIndexByID(const char* controlPointID);
   /// Get the Nth control point based on it's ID
   ControlPoint* GetNthControlPointByID(const char* controlPointID);
+
+  /// @{
+  /// Find the first control point index by the specified id, label, or description.
+  /// Returns -1 if no such control point was found.
+  int GetControlPointIndexByID(const char* id);
+  int GetControlPointIndexByLabel(const char* label);
+  int GetControlPointIndexByDescription(const char* description);
+  /// @}
 
   /// Get the Selected flag on the Nth control point,
   /// returns false if control point doesn't exist
@@ -541,7 +552,7 @@ public:
   /// determine if it is locked. If the locked flag is set to false on the node
   /// as a whole, all control point are locked but keep this value for when the
   /// list as a whole is turned unlocked.
-  /// \sa vtMRMLMarkupsNode::SetLocked
+  /// \sa vtkMRMLMarkupsNode::SetLocked
   void SetNthControlPointLocked(int n, bool flag);
 
   /// Get the Visibility flag on the Nth control point,
@@ -593,7 +604,7 @@ public:
   /// %d will resolve to the highest not yet used list index integer.
   /// Character strings will otherwise pass through
   /// Defaults to %N-%d which will yield control point names of Name-0, Name-1, Name-2.
-  /// If format string is changed then LabelFormatModifedEvent event is invoked.
+  /// If format string is changed then LabelFormatModifiedEvent event is invoked.
   std::string GetControlPointLabelFormat();
   void SetControlPointLabelFormat(std::string format);
   ///@}
@@ -614,7 +625,7 @@ public:
   bool GetModifiedSinceRead() override;
 
   /// Reset the id of the Nth control point according to the local policy
-  /// Called after an already initialised markup has been added to the
+  /// Called after an already initialized markup has been added to the
   /// scene. Returns false if n out of bounds, true on success.
   bool ResetNthControlPointID(int n);
 
@@ -632,7 +643,7 @@ public:
   vtkGetMacro(RequiredNumberOfControlPoints, int);
 
   /// Maximum number of control points limits the number of markups allowed in the node.
-  /// If maximum number of control points is set to 0 then no it means there
+  /// If maximum number of control points is set to -1 then no it means there
   /// is no limit (this is the default value).
   /// The value is an indication to the user interface and does not affect
   /// prevent adding markups to a node programmatically.
@@ -667,6 +678,10 @@ public:
   /// use of the curve for other computations.
   /// Any custom overrides of the interpolation modes are not persisted in MRML.
   vtkCurveGenerator* GetCurveGenerator() { return this->CurveGenerator.GetPointer(); };
+
+  /// The internal instance of the curve coordinate system generator to allow
+  /// use of the coordinate systems computed for curve point for other computations.
+  vtkParallelTransportFrame* GetCurveCoordinateSystemGeneratorWorld() { return this->CurveCoordinateSystemGeneratorWorld.GetPointer(); };
 
   void GetRASBounds(double bounds[6]) override;
   void GetBounds(double bounds[6]) override;

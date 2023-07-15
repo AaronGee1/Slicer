@@ -24,6 +24,7 @@
 
 // Qt includes
 #include <QFileInfo>
+#include <QTextStream>
 
 // Logic includes
 #include "vtkSlicerSegmentationsModuleLogic.h"
@@ -78,23 +79,24 @@ vtkSlicerSegmentationsModuleLogic* qSlicerSegmentationsReader::segmentationsLogi
 //-----------------------------------------------------------------------------
 QString qSlicerSegmentationsReader::description()const
 {
-  return "Segmentation";
+  return tr("Segmentation");
 }
 
 //-----------------------------------------------------------------------------
 qSlicerIO::IOFileType qSlicerSegmentationsReader::fileType()const
 {
-  return QString("SegmentationFile");
+  return QString(/*no tr*/"SegmentationFile");
 }
 
 //-----------------------------------------------------------------------------
 QStringList qSlicerSegmentationsReader::extensions()const
 {
+  QString extensionText = tr("Segmentation");
   return QStringList()
-    << "Segmentation (*.seg.nrrd)" << "Segmentation (*.seg.nhdr)" << "Segmentation (*.seg.vtm)"
-    << "Segmentation (*.nrrd)" << "Segmentation (*.nhdr)" << "Segmentation (*.vtm)"
-    << "Segmentation (*.nii.gz)" << "Segmentation (*.nii)" << "Segmentation (*.hdr)"
-    << "Segmentation (*.stl)" << "Segmentation (*.obj)";
+    << extensionText + " (*.seg.nrrd)" << extensionText + " (*.seg.nhdr)" << extensionText + " (*.seg.vtm)"
+    << extensionText + " (*.nrrd)" << extensionText + " (*.nhdr)" << extensionText + " (*.vtm)"
+    << extensionText + " (*.nii.gz)" << extensionText + " (*.nii)" << extensionText + " (*.hdr)"
+    << extensionText + " (*.stl)" << extensionText + " (*.obj)";
 }
 
 //-----------------------------------------------------------------------------
@@ -103,6 +105,36 @@ qSlicerIOOptions* qSlicerSegmentationsReader::options()const
   qSlicerIOOptionsWidget* options = new qSlicerSegmentationsIOOptionsWidget;
   options->setMRMLScene(this->mrmlScene());
   return options;
+}
+
+//----------------------------------------------------------------------------
+double qSlicerSegmentationsReader::canLoadFileConfidence(const QString& fileName)const
+{
+  double confidence = Superclass::canLoadFileConfidence(fileName);
+
+  // Confidence for .nrrd file is 0.55 (5 characters in the file extension matched),
+  // .vtm is 0.54; for composite file extensions (.seg.nrrd, .seg.vtm) it would be >0.58.
+  // Therefore, confidence below 0.56 means that we got a generic file extension
+  // that we need to inspect further.
+  if (confidence > 0 && confidence < 0.56)
+    {
+    // Not a composite file extension, inspect the content (for now, only nrrd).
+    QString upperCaseFileName = fileName.toUpper();
+    if (upperCaseFileName.endsWith("NRRD") || upperCaseFileName.endsWith("NHDR"))
+      {
+      QFile file(fileName);
+      if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+        {
+        QTextStream in(&file);
+        // Segmentation NRRD files contain ID for each segment (such as Segment0_ID:=...)
+        // around position 500, read a bit further to account for slight variations in the header.
+        QString line = in.read(800);
+        // If this appears in the file header then declare higher confidence value.
+        confidence = (line.contains("Segment0_ID:=") ? 0.6 : 0.4);
+        }
+      }
+    }
+  return confidence;
 }
 
 //-----------------------------------------------------------------------------
@@ -133,21 +165,21 @@ bool qSlicerSegmentationsReader::load(const IOProperties& properties)
     modelStorageNode->SetFileName(fileName.toStdString().c_str());
     vtkNew<vtkMRMLModelNode> modelNode;
     if (!modelStorageNode->ReadData(modelNode))
-    {
+      {
       return false;
-    }
+      }
     closedSurfaceRepresentation = modelNode->GetPolyData();
 
     // Remove all arrays, because they could slow down all further processing
-      // and consume significant amount of memory.
+    // and consume significant amount of memory.
     if (closedSurfaceRepresentation != nullptr && closedSurfaceRepresentation->GetPointData() != nullptr)
-    {
+      {
       vtkPointData* pointData = closedSurfaceRepresentation->GetPointData();
       while (pointData->GetNumberOfArrays() > 0)
-      {
+        {
         pointData->RemoveArray(0);
+        }
       }
-    }
 
     if (closedSurfaceRepresentation == nullptr)
       {
@@ -165,7 +197,7 @@ bool qSlicerSegmentationsReader::load(const IOProperties& properties)
 
     vtkMRMLSegmentationNode* segmentationNode = vtkMRMLSegmentationNode::SafeDownCast(
       this->mrmlScene()->AddNewNodeByClass("vtkMRMLSegmentationNode", this->mrmlScene()->GetUniqueNameByString(name.toUtf8())));
-    segmentationNode->SetMasterRepresentationToClosedSurface();
+    segmentationNode->SetSourceRepresentationToClosedSurface();
     segmentationNode->CreateDefaultDisplayNodes();
     vtkMRMLSegmentationDisplayNode* displayNode = vtkMRMLSegmentationDisplayNode::SafeDownCast(segmentationNode->GetDisplayNode());
     if (displayNode)

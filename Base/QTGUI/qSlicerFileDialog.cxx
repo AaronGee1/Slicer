@@ -75,7 +75,7 @@ QStringList qSlicerFileDialog::nameFilters(qSlicerIO::IOFileType fileType)
       extensions << ctk::nameFilterToExtensions(nameFilter);
       }
     }
-  filters.insert(0, QString("All (") + extensions.join(" ") + QString(")"));
+  filters.insert(0, tr("All") + " (" + extensions.join(" ") + ")");
   return filters;
 }
 
@@ -213,7 +213,7 @@ ctkFileDialog* qSlicerStandardFileDialog::createFileDialog(
   if (ioProperties["fileMode"].toBool())
     {
     fileDialog->setOption(QFileDialog::ShowDirsOnly);
-    fileDialog->setFileMode(QFileDialog::DirectoryOnly);
+    fileDialog->setFileMode(QFileDialog::Directory);
     }
 
   fileDialog->setObjectName(ioProperties["objectName"].toString());
@@ -245,6 +245,7 @@ qSlicerIOOptions* qSlicerStandardFileDialog
       }
     QStringList fileDescriptions =
       ioManager->fileWriterDescriptions(this->fileType());
+    // TODO: this seems wrong, a description is provided while the method expects an extension
     options = fileDescriptions.count() ?
       ioManager->fileWriterOptions(nodeToSave, fileDescriptions[0]) : nullptr;
     }
@@ -284,7 +285,7 @@ bool qSlicerStandardFileDialog::exec(const qSlicerIO::IOProperties& ioProperties
   qSlicerIOOptionsWidget* optionsWidget =
     dynamic_cast<qSlicerIOOptionsWidget*>(options);
   // options is not necessary a qSlicerIOOptionsWidget (for the case of
-  // readers/modules with no UI. If there is a UI then add it inside the  file
+  // readers/modules with no UI. If there is a UI then add it inside the file
   // dialog.
   if (optionsWidget)
     {
@@ -314,10 +315,7 @@ bool qSlicerStandardFileDialog::exec(const qSlicerIO::IOProperties& ioProperties
       {
       properties.unite(options->properties());
       }
-    else
-      {
-      properties["fileName"] = fileDialog->selectedFiles();
-      }
+    properties["fileName"] = fileDialog->selectedFiles();
     if (d->Action == qSlicerFileDialog::Read)
       {
       vtkNew<vtkCollection> loadedNodes;

@@ -51,6 +51,7 @@
 #include <vtkSmartPointer.h>
 #include <vtkWeakPointer.h>
 
+class ctkDynamicSpacer;
 class ctkSignalMapper;
 class ctkDoubleSpinBox;
 class ctkVTKSliceView;
@@ -60,13 +61,6 @@ class vtkMRMLSliceNode;
 class vtkObject;
 class vtkMRMLSegmentationDisplayNode;
 class vtkMRMLSelectionNode;
-
-//-----------------------------------------------------------------------------
-struct QMRML_WIDGETS_EXPORT qMRMLOrientation
-{
-  QString Prefix;
-  QString ToolTip;
-};
 
 //-----------------------------------------------------------------------------
 class QMRML_WIDGETS_EXPORT qMRMLSliceControllerWidgetPrivate
@@ -97,8 +91,7 @@ public:
   void setupMoreOptionsMenu();
   void setupOrientationMarkerMenu();
   void setupRulerMenu();
-
-  qMRMLOrientation mrmlOrientation(const QString& name);
+  void setupSlabReconstructionMenu();
 
   vtkSmartPointer<vtkCollection> saveNodesForUndo(const QString& nodeTypes);
 
@@ -164,6 +157,8 @@ public slots:
 
   void applyCustomLightbox();
 
+  void updateSliceOffsetSliderVisibility();
+
 protected:
   void setupPopupUi() override;
   void setMRMLSliceCompositeNodeInternal(vtkMRMLSliceCompositeNode* sliceComposite);
@@ -175,11 +170,11 @@ public:
   vtkSmartPointer<vtkMRMLSliceLogic>  SliceLogic;
   vtkCollection*                      SliceLogics;
   vtkWeakPointer<vtkAlgorithmOutput>  ImageDataConnection;
-  QHash<QString, qMRMLOrientation>    SliceOrientationToDescription;
   QButtonGroup*                       ControllerButtonGroup;
 
   QToolButton*                        FitToWindowToolButton;
   qMRMLSliderWidget*                  SliceOffsetSlider;
+  ctkDynamicSpacer*                   SliderSpacer;
   /// Slicer offset resolution without applying display scaling.
   double                              SliceOffsetResolution{1.0};
   double                              LastLabelMapOpacity;
@@ -194,11 +189,13 @@ public:
   QMenu*                              LabelMapMenu;
   QMenu*                              OrientationMarkerMenu;
   QMenu*                              RulerMenu;
+  QMenu*                              SlabReconstructionMenu;
 
   ctkDoubleSpinBox*                   SliceSpacingSpinBox;
   ctkDoubleSpinBox*                   SliceFOVSpinBox;
   QSpinBox*                           LightBoxRowsSpinBox;
   QSpinBox*                           LightBoxColumnsSpinBox;
+  ctkDoubleSpinBox*                   SlabReconstructionThicknessSpinBox;
 
   ctkDoubleSpinBox*                   SliceModelFOVXSpinBox;
   ctkDoubleSpinBox*                   SliceModelFOVYSpinBox;
@@ -216,6 +213,10 @@ public:
 
   ctkSignalMapper*                    RulerTypesMapper;
   ctkSignalMapper*                    RulerColorMapper;
+
+  ctkSignalMapper*                    SlabReconstructionTypesMapper;
+
+  bool                                ShowSliceOffsetSlider{true};
 };
 
 #endif

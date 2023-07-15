@@ -35,8 +35,10 @@ class vtkMRMLSelectionNode;
 class vtkMRMLStorableNode;
 class vtkMRMLStorageNode;
 class vtkMRMLInteractionNode;
+class vtkMRMLMessageCollection;
 class vtkMRMLViewLogic;
 class vtkMRMLViewNode;
+class vtkTextProperty;
 
 // VTK includes
 class vtkCollection;
@@ -161,12 +163,12 @@ public:
   /// \sa qSlicerCoreIOManager::saveScene
   /// If screenShot is not null, use it as the screen shot for a scene view
   /// Returns false if the save failed
-  bool SaveSceneToSlicerDataBundleDirectory(const char* sdbDir, vtkImageData* screenShot = nullptr);
+  bool SaveSceneToSlicerDataBundleDirectory(const char* sdbDir, vtkImageData* screenShot = nullptr, vtkMRMLMessageCollection* userMessages=nullptr);
 
   /// Open the file into a temp directory and load the scene file
   /// inside.  Note that the first mrml file found in the extracted
   /// directory will be used.
-  bool OpenSlicerDataBundle(const char* sdbFilePath, const char* temporaryDirectory);
+  bool OpenSlicerDataBundle(const char* sdbFilePath, const char* temporaryDirectory, vtkMRMLMessageCollection* userMessages=nullptr);
 
   /// Unpack the file into a temp directory and return the scene file
   /// inside.  Note that the first mrml file found in the extracted
@@ -267,6 +269,25 @@ public:
 
   void SetIntersectingSlicesLineThicknessMode(int mode);
   int GetIntersectingSlicesLineThicknessMode();
+
+  /// @{
+  /// Set custom font file name for rendering views.
+  /// fontFamily can be VTK_ARIAL, VTK_COURIER, VTK_TIMES.
+  /// Font file must be in GetFontsDirectory().
+  void SetFontFileName(int fontFamily, const std::string& fontFileName);
+  std::string GetFontFileName(int fontFamily);
+  /// @}
+
+  /// Get full path to custom font file for rendering views from font file name.
+  std::string GetFontFilePath(const std::string& fontFileName);
+
+  /// Get folder where font files are stored ("Fonts" subfolder in application share folder).
+  std::string GetFontsDirectory();
+
+  /// Update text property to use custom font file.
+  /// Font family is set from arial/courier/times font family to custom fontfile.
+  /// Font file path is set to the one specified in FontFileName property in this object.
+  void UseCustomFontFile(vtkTextProperty* textProperty);
 
 protected:
 

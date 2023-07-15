@@ -15,19 +15,19 @@ documentation, all the way down to half-baked ideas that launch discussions.
 The PR Process, Circle CI, and Related Gotchas
 ----------------------------------------------
 
-#### How to submit a PR ?
+### How to submit a PR ?
 
 If you are new to Slicer development and you don't have push access to the Slicer
 repository, here are the steps:
 
-1. [Fork and clone](https://help.github.com/articles/fork-a-repo/) the repository.
-2. Run the developer setup script [`Utilities/SetupForDevelopment.sh`](https://github.com/Slicer/Slicer/blob/master/Utilities/SetupForDevelopment.sh).
+1. [Fork and clone](https://docs.github.com/get-started/quickstart/fork-a-repo) the repository.
+2. Run the developer setup script [`Utilities/SetupForDevelopment.sh`](https://github.com/Slicer/Slicer/blob/main/Utilities/SetupForDevelopment.sh).
 3. Create a branch.
-4. [Push](https://help.github.com/articles/pushing-to-a-remote/) the branch to your GitHub fork.
+4. [Push](https://docs.github.com/get-started/using-git/pushing-commits-to-a-remote-repository) the branch to your GitHub fork.
 5. Create a [Pull Request](https://github.com/Slicer/Slicer/pulls).
 
-This corresponds to the `Fork & Pull Model` mentioned in the [GitHub flow](https://guides.github.com/introduction/flow/index.html)
-guides.
+This corresponds to the `Fork & Pull Model` described in the [GitHub collaborative development](https://docs.github.com/pull-requests/collaborating-with-pull-requests/getting-started/about-collaborative-development-models)
+documentation.
 
 When submitting a PR, the developers following the project will be notified. That
 said, to engage specific developers, you can add `Cc: @<username>` comment to notify
@@ -35,7 +35,7 @@ them of your awesome contributions.
 Based on the comments posted by the reviewers, you may have to revisit your patches.
 
 
-#### How to efficiently contribute ?
+### How to efficiently contribute ?
 
 We encourage all developers to:
 
@@ -48,7 +48,7 @@ We encourage all developers to:
   core functionality, should be carefully reviewed and integrated. Ideally, several
   developers would test that the changes don't break extensions.
 
-#### How to write commit messages ?
+### How to write commit messages ?
 
 Write your commit messages using the standard prefixes for Slicer commit
 messages:
@@ -82,7 +82,7 @@ commits, the message body should follow the following guidelines:
   a regression test, provide the link. If it fixes a compiler error, provide a
   minimal verbatim message of the compiler error. If the commit closes an
   issue, use the [GitHub issue closing
-  keywords](https://help.github.com/en/articles/closing-issues-using-keywords).
+  keywords](https://docs.github.com/issues/tracking-your-work-with-issues/linking-a-pull-request-to-an-issue).
 
 Keep in mind that the significant time is invested in reviewing commits and
 *pull requests*, so following these guidelines will greatly help the people
@@ -101,7 +101,7 @@ Examples:
   - Good: `COMP: Fix compilation error with Numpy on Visual Studio`
 
 
-#### How to integrate a PR ?
+### How to integrate a PR ?
 
 Getting your contributions integrated is relatively straightforward, here
 is the checklist:
@@ -118,7 +118,7 @@ is the checklist:
   the [Slicer forum][slicer-forum].
 
 
-#### Automatic testing of pull requests
+### Automatic testing of pull requests
 
 Every pull request is tested automatically using CircleCI each time you push a
 commit to it. The Github UI will restrict users from merging pull requests until
@@ -130,7 +130,7 @@ The testing infrastructure is described in details in the
 blog post.
 
 
-#### Nightly tests
+### Nightly tests
 
 After changes are integrated, every evening at 10pm EST (3am UTC), Slicer build bots (aka factories)
 will build, test and package the Slicer application and all its extensions on Linux, macOS
@@ -139,7 +139,7 @@ and developers that introduced changes resulting in build or test failures are n
 email.
 
 
-#### Decision-making process
+### Decision-making process
 
 1. Given the topic of interest, initiate discussion on the [Slicer forum][slicer-forum].
 

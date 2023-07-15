@@ -666,7 +666,7 @@ WARN_LOGFILE           =
 
 INPUT                  = "@Slicer_SOURCE_DIR@" \
                          "@Slicer_BINARY_DIR@/vtkSlicerVersionConfigure.h" \
-                         "@Slicer_BINARY_DIR@/vtkSlicerVersionConfigureInternal.h"
+                         "@Slicer_BINARY_DIR@/vtkSlicerVersionConfigureMinimal.h"
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding, which is
@@ -985,7 +985,7 @@ HTML_STYLESHEET        =
 # user-defined cascading style sheet that is included after the standard
 # style sheets created by doxygen. Using this option one can overrule
 # certain style aspects. This is preferred over using HTML_STYLESHEET
-# since it does not replace the standard style sheet and is therefor more
+# since it does not replace the standard style sheet and is therefore more
 # robust against future updates. Doxygen will copy the style sheet file to
 # the output directory.
 

@@ -10,9 +10,9 @@ The prerequisites listed below are required to be able to configure/build/packag
 xcode-select --install
 ```
 
-- A CMake version that meets at least the minimum required CMake version [here](https://github.com/Slicer/Slicer/blob/master/CMakeLists.txt#L1)
+- A CMake version that meets at least the minimum required CMake version [here](https://github.com/Slicer/Slicer/blob/main/CMakeLists.txt#L1)
 - Qt 5: **tested and recommended**.
-  - For building Slicer: download and execute [qt-unified-mac-x64-online.dmg](https://download.qt.io/official_releases/online_installers/qt-unified-mac-x64-online.dmg), install Qt 5.15.2, make sure to select `qtscript` and `qtwebengine` components.
+  - For building Slicer: download and execute [qt-unified-mac-x64-online.dmg](https://download.qt.io/official_releases/online_installers/qt-unified-mac-x64-online.dmg), install Qt 5.15.2, make sure to select the `qtwebengine` component.
   - For packaging and redistributing Slicer: build Qt using [qt-easy-build](https://github.com/jcfr/qt-easy-build#readme)
 - Setting `CMAKE_OSX_DEPLOYMENT_TARGET` CMake variable specifies the minimum macOS version a generated installer may target. So it should be equal to or less than the version of SDK you are building on. Note that the SDK version is set using `CMAKE_OSX_SYSROOT` CMake variable automatically initialized during CMake configuration.
 
@@ -48,7 +48,7 @@ cd Slicer
 mkdir /opt/s
 cd /opt/s
 cmake \
-  -DCMAKE_OSX_DEPLOYMENT_TARGET:STRING=10.13 \
+  -DCMAKE_OSX_DEPLOYMENT_TARGET:STRING=11.0 \
   -DCMAKE_BUILD_TYPE:STRING=Debug \
   -DQt5_DIR:PATH=/path/to/Qt/lib/cmake/Qt5 \
   /path/to/source/code/of/Slicer
@@ -59,7 +59,7 @@ cmake \
 - Remarks:
   - Instead of `cmake`, you can use `ccmake` or `cmake-gui` to visually inspect and edit configure options.
   - Using top-level directory name like `/opt/sr` for Release or `/opt/s` for Debug is recommended. If `/opt` does not exist on your machine you need to use sudo for `mkdir` and `chown` in `/opt`.
-  - [Step-by-step debug instuctions](https://www.slicer.org/wiki/Documentation/Nightly/Developers/Tutorials/Debug_Instructions)
+  - [Step-by-step debug instructions](https://www.slicer.org/wiki/Documentation/Nightly/Developers/Tutorials/Debug_Instructions)
   - Additional configuration options to customize the application are described [here](overview.md#custom-builds).
 
 ### General information

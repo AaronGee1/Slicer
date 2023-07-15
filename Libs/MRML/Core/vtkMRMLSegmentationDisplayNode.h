@@ -58,6 +58,8 @@ public:
     double Opacity3D{1.0};
     double Opacity2DFill{1.0}; // This one is used for labelmap volume related operations (color table, merged labelmap)
     double Opacity2DOutline{1.0};
+    /// Pickable by interactions flag. If true, then the point under the mouse on the segment surfaces in the 3D views is computed, otherwise skipped.
+    bool Pickable{true};
 
     // Initialize with default values
     SegmentDisplayProperties()
@@ -171,14 +173,14 @@ public:
 
   /// Decide which poly data representation to use for 3D display.
   /// If preferred representation exists \sa PreferredDisplayRepresentationName3D, then return that.
-  /// Otherwise if master representation is a poly data then return master representation type.
+  /// Otherwise if source representation is a poly data then return source representation type.
   /// Otherwise return first poly data representation if any.
   /// Otherwise return empty string meaning there is no poly data representation to display.
   std::string GetDisplayRepresentationName3D();
 
   /// Decide which representation to use for 2D display.
   /// If preferred representation exists \sa PreferredDisplayRepresentationName2D, then return that.
-  /// Otherwise return master representation.
+  /// Otherwise return source representation.
   std::string GetDisplayRepresentationName2D();
 
 // Convenience and python compatibility functions
@@ -258,6 +260,13 @@ public:
   void SetSegmentOpacity(std::string segmentID, double opacity);
   void SetAllSegmentsOpacity(double opacity, bool changeVisibleSegmentsOnly = false);
 
+  /// Get segment pickability by segment ID. Convenience function for python compatibility.
+  /// \return Segment 2D pickability if segment found, otherwise false
+  bool GetSegmentPickable(std::string segmentID);
+  /// Set segment 2D pickability by segment ID. Convenience function for python compatibility.
+  void SetSegmentPickable(std::string segmentID, bool pickable);
+  void SetAllSegmentsPickable(bool pickable, bool changeVisibleSegmentsOnly = false);
+
   /// Get all visible segment IDs.
   void GetVisibleSegmentIDs(vtkStringArray* segmentIDs);
 
@@ -286,11 +295,11 @@ protected:
 
 protected:
   /// Name of representation that is displayed in 2D views as outline or filled area
-  /// if exists. If does not exist, then master representation is displayed.
+  /// if exists. If does not exist, then source representation is displayed.
   char* PreferredDisplayRepresentationName2D{nullptr};
 
   /// Name of representation that is displayed as poly data in the 3D view.
-  /// If does not exist, then master representation is displayed if poly data,
+  /// If does not exist, then source representation is displayed if poly data,
   /// otherwise the first poly data representation if any.
   char* PreferredDisplayRepresentationName3D{nullptr};
 

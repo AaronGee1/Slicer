@@ -94,8 +94,8 @@ bool qSlicerIOManagerPrivate::startProgressDialog(int steps)
     return false;
     }
   int max = (steps != 1 ? steps : 100);
-  this->ProgressDialog = new QProgressDialog("Loading file... ", "Cancel", 0, max);
-  this->ProgressDialog->setWindowTitle(QString("Loading ..."));
+  this->ProgressDialog = new QProgressDialog(qSlicerIOManager::tr("Loading file... "), qSlicerIOManager::tr("Cancel"), 0, max);
+  this->ProgressDialog->setWindowTitle(qSlicerIOManager::tr("Loading ..."));
   if (steps == 1)
     {
     // We only support cancelling a load action if we can have control over it
@@ -177,10 +177,10 @@ createUniqueDialogName(qSlicerIO::IOFileType fileType,
 {
   QString objectName;
 
-  objectName += action == qSlicerFileDialog::Read ? "Add" : "Save";
+  objectName += action == qSlicerFileDialog::Read ?/*no tr*/"Add" : /*no tr*/"Save";
   objectName += fileType;
   objectName += ioProperties["multipleFiles"].toBool() ? "s" : "";
-  objectName += "Dialog";
+  objectName += /*no tr*/"Dialog";
 
   return objectName;
 }
@@ -318,11 +318,13 @@ void qSlicerIOManager::dropEvent(QDropEvent *event)
   if (supportedReaders.size() > 1)
     {
     QString title = tr("Select a reader");
-    QString label = tr("Select a reader to use for your data?");
+    QString label = tr("Select a reader to use for your data:");
     int current = 0;
     bool editable = false;
     bool ok = false;
-    selectedReader = QInputDialog::getItem(nullptr, title, label, supportedReaders, current, editable, &ok);
+    qSlicerApplication* app = qSlicerApplication::application();
+    QWidget* mainWindow = app ? app->mainWindow() : nullptr;
+    selectedReader = QInputDialog::getItem(mainWindow, title, label, supportedReaders, current, editable, &ok);
     if (!ok)
       {
       selectedReader = QString();
@@ -427,6 +429,14 @@ void qSlicerIOManager::registerDialog(qSlicerFileDialog* dialog)
 }
 
 //-----------------------------------------------------------------------------
+bool qSlicerIOManager::isDialogRegistered(qSlicerIO::IOFileType fileType, qSlicerFileDialog::IOAction action) const
+{
+  Q_D(const qSlicerIOManager);
+  qSlicerFileDialog* existingDialog = d->findDialog(fileType, action);
+  return existingDialog != nullptr;
+}
+
+//-----------------------------------------------------------------------------
 bool qSlicerIOManager::loadNodes(const qSlicerIO::IOFileType& fileType,
   const qSlicerIO::IOProperties& parameters, vtkCollection* loadedNodes,
   vtkMRMLMessageCollection* userMessages/*=nullptr*/)
@@ -437,7 +447,7 @@ bool qSlicerIOManager::loadNodes(const qSlicerIO::IOFileType& fileType,
   SlicerRenderBlocker renderBlocker;
   bool needStop = d->startProgressDialog(1);
   d->ProgressDialog->setLabelText(
-    "Loading file " + parameters.value("fileName").toString() + " ...");
+    qSlicerIOManager::tr("Loading file ") + parameters.value("fileName").toString() + " ...");
   if (needStop)
     {
     d->ProgressDialog->setValue(25);
@@ -591,7 +601,9 @@ void qSlicerIOManager::showLoadNodesResultDialog(bool overallSuccess, vtkMRMLMes
   if (userMessages)
     {
     text += tr("Click 'Show details' button and check the application log for more information.");
-    messageBox->setDetailedText(QString::fromStdString(userMessages->GetAllMessagesAsString()));
+    QString messagesStr = QString::fromStdString(userMessages->GetAllMessagesAsString());
+    messageBox->setDetailedText(messagesStr);
+    qWarning() << Q_FUNC_INFO << "Errors occurred while loading nodes:" << messagesStr;
     }
   else
     {

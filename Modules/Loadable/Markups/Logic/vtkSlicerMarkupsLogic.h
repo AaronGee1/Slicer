@@ -59,7 +59,8 @@ class VTK_SLICER_MARKUPS_MODULE_LOGIC_EXPORT vtkSlicerMarkupsLogic :
 {
 public:
 
-  enum Events{
+  enum Events
+  {
     MarkupRegistered = vtkCommand::UserEvent + 1,
     MarkupUnregistered
   };
@@ -143,6 +144,20 @@ public:
   char* LoadMarkupsFromFcsv(const char* fileName, const char* nodeName=nullptr, vtkMRMLMessageCollection* userMessages=nullptr);
   char* LoadMarkupsFromJson(const char* fileName, const char* nodeName=nullptr, vtkMRMLMessageCollection* userMessages=nullptr);
 
+  /// Load a legacy annotation file, return nullptr on error, node ID string
+  /// otherwise. Adds the appropriate storage and display nodes to the scene
+  /// as well. fileType is from this class's enum
+  char* LoadAnnotation(const char *filename, const char *name, int annotationFileType);
+
+  /// Enumeration listing valid annotation file types to load using LoadAnnotation
+  enum
+    {
+    AnnotationNone = 0,
+    AnnotationFiducial,
+    AnnotationRuler,
+    AnnotationROI,
+    };
+
   /// Utility methods to operate on all control points in a markups node
   /// @{
   void SetAllControlPointsVisibility(vtkMRMLMarkupsNode *node, bool flag);
@@ -179,12 +194,22 @@ public:
   bool MoveNthControlPointToNewListAtIndex(int n, vtkMRMLMarkupsNode *markupsNode,
                                    vtkMRMLMarkupsNode *newMarkupsNode, int newIndex);
 
-  /// Searches the scene for annotation fidicual nodes, collecting a list
+  /// Searches the scene for annotation fiducial nodes, collecting a list
   /// of annotation hierarchy nodes. Then iterates through those hierarchy nodes
   /// and moves the fiducials that are under them into new markups nodes. Leaves
   /// the top level hierarchy nodes intact as they may be parents to ruler or
   /// ROIs but deletes the 1:1 hierarchy nodes.
-  void ConvertAnnotationFiducialsToMarkups();
+  /// If addedNodeIds or removedNodeIds are specified then IDs of data and hierarchy nodes
+  /// added or removed during conversion in the main scene are added to these arrays.
+  void ConvertAnnotationFiducialsToMarkups(vtkStringArray* addedNodeIds=nullptr, vtkStringArray* removedNodeIds=nullptr);
+
+  /// Searches the scene for annotation ruler and ROI nodes and converts each to
+  /// markup line or ROI node.
+  /// If addedNodeIds or removedNodeIds are specified then IDs of data and hierarchy nodes
+  /// added or removed during conversion in the main scene are added to these arrays.
+  void ConvertAnnotationLinesROIsToMarkups(vtkStringArray* addedNodeIds=nullptr, vtkStringArray* removedNodeIds=nullptr);
+
+  void ConvertAnnotationHierarchyToSubjectHierarchy(vtkMRMLScene* scene);
 
   /// Iterate over the control points in the list and reset the control point labels using
   /// the current ControlPointLabelFormat setting. Try to keep current numbering.
@@ -213,7 +238,7 @@ public:
   /// If projectWarp option is enabled then FitSurfaceProjectWarp method is used
   /// otherwise FitSurfaceDiskWarp is used. FitSurfaceProjectWarp produces accurate results
   /// for all quasi-planar curves (while FitSurfaceDiskWarp may significantly overestimate surface area for
-  /// planar convex curves). FitSurfaceDiskWarp is kept for compatison only and may be removed in the future.
+  /// planar convex curves). FitSurfaceDiskWarp is kept for comparison only and may be removed in the future.
   /// \param curveNode points to fit the surface to
   /// \param surface if not nullptr then the generated surface is saved into that
   static double GetClosedCurveSurfaceArea(vtkMRMLMarkupsClosedCurveNode* curveNode, vtkPolyData* surface = nullptr, bool projectWarp = true);
@@ -254,7 +279,7 @@ public:
   void RegisterJsonStorageNodeForMarkupsType(std::string markupsType, std::string storageNodeClassName);
   vtkMRMLMarkupsJsonStorageNode* AddNewJsonStorageNodeForMarkupsType(std::string markupsType);
 
-  /// Registers a markup and its corresponding widget to be handled by the Markups module.
+  /// Register a markup and its corresponding widget to be handled by the Markups module.
   /// For a markup to be handled by this module (processed by the displayable
   /// manager, UI and subject hierarchy) it needs to be registered using this method.
   /// The method also registers the markupsNode class in the scene.
@@ -264,22 +289,26 @@ public:
                            vtkSlicerMarkupsWidget* markupsWidget,
                            bool createPushButton=true);
 
-  /// Unregisters a markup and its corresponding widget. This will trigger the
+  /// Unregister a markup and its corresponding widget. This will trigger the
   /// vtkSlicerMarkupsLogic::MarkupUnregistered event.
-  /// \param markupsNode MRMLMakrups node to be unregistered.
+  /// \param markupsNode MRMLMarkups node to be unregistered.
   void UnregisterMarkupsNode(vtkMRMLMarkupsNode*  markupsNode);
+
+  /// Returns true if the provided class name is a known markups class
+  /// (it has been registered in the logic using RegisterMarkupsNode).
+  bool IsMarkupsNodeRegistered(const char* nodeType) const;
 
   /// This returns an instance to a corresponding vtkSlicerMarkupsWidget associated
   /// to the indicated markups name.
   /// \param markupsType registered class to retrieve the associated widget.
-  /// \return pointer to associated vtkSLicerMarkupsWidget or nullptr if the MRML node
+  /// \return pointer to associated vtkSlicerMarkupsWidget or nullptr if the MRML node
   /// class is not registered.
   vtkSlicerMarkupsWidget* GetWidgetByMarkupsType(const char* markupsType) const;
 
   /// This returns an instance to a corresponding vtkMRMLMarkupsNode associated
   /// to the indicated markups name.
-  /// \param makrupsType registered class to retrieve the associated widget.
-  /// \return pointer to associated vtkSLicerMarkupsWidget or nullptr if the MRML node
+  /// \param markupsType registered class to retrieve the associated widget.
+  /// \return pointer to associated vtkSlicerMarkupsWidget or nullptr if the MRML node
   /// class is not registered.
   vtkMRMLMarkupsNode* GetNodeByMarkupsType(const char* markupsType) const;
 
@@ -402,6 +431,7 @@ protected:
   void UpdateFromMRMLScene() override;
   void OnMRMLSceneNodeAdded(vtkMRMLNode* node) override;
   void OnMRMLSceneNodeRemoved(vtkMRMLNode* node) override;
+  void OnMRMLSceneEndImport() override;
 
 private:
 

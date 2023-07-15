@@ -67,8 +67,10 @@ class Q_SLICER_MODULE_SEGMENTATIONS_WIDGETS_EXPORT qMRMLSegmentEditorWidget : pu
   Q_OBJECT
   QVTK_OBJECT
   Q_PROPERTY(bool segmentationNodeSelectorVisible READ segmentationNodeSelectorVisible WRITE setSegmentationNodeSelectorVisible)
-  Q_PROPERTY(bool masterVolumeNodeSelectorVisible READ masterVolumeNodeSelectorVisible WRITE setMasterVolumeNodeSelectorVisible)
-  Q_PROPERTY(bool autoShowMasterVolumeNode READ autoShowMasterVolumeNode WRITE setAutoShowMasterVolumeNode)
+  Q_PROPERTY(bool sourceVolumeNodeSelectorVisible READ sourceVolumeNodeSelectorVisible WRITE setSourceVolumeNodeSelectorVisible)
+  Q_PROPERTY(bool autoShowSourceVolumeNode READ autoShowSourceVolumeNode WRITE setAutoShowSourceVolumeNode)
+  Q_PROPERTY(bool masterVolumeNodeSelectorVisible READ masterVolumeNodeSelectorVisible WRITE setMasterVolumeNodeSelectorVisible) // deprecated
+  Q_PROPERTY(bool autoShowMasterVolumeNode READ autoShowMasterVolumeNode WRITE setAutoShowMasterVolumeNode) // deprecated
   Q_PROPERTY(bool switchToSegmentationsButtonVisible READ switchToSegmentationsButtonVisible WRITE setSwitchToSegmentationsButtonVisible)
   Q_PROPERTY(bool undoEnabled READ undoEnabled WRITE setUndoEnabled)
   Q_PROPERTY(int maximumNumberOfUndoStates READ maximumNumberOfUndoStates WRITE setMaximumNumberOfUndoStates)
@@ -94,11 +96,23 @@ public:
   Q_INVOKABLE vtkMRMLNode* segmentationNode()const;
   /// Get ID of currently selected segmentation node
   Q_INVOKABLE QString segmentationNodeID()const;
-  /// Get currently selected master volume MRML node
-  Q_INVOKABLE vtkMRMLNode* masterVolumeNode()const;
-  /// Get ID of currently selected master volume node
-  Q_INVOKABLE QString masterVolumeNodeID()const;
+  /// Get currently selected source volume MRML node
+  Q_INVOKABLE vtkMRMLNode* sourceVolumeNode()const;
+  /// Get ID of currently selected source volume node
+  Q_INVOKABLE QString sourceVolumeNodeID()const;
 
+  /// Deprecated. Use sourceVolumeNode() method instead.
+  Q_INVOKABLE vtkMRMLNode* masterVolumeNode()const
+    {
+    qWarning("qMRMLSegmentEditorWidget::masterVolumeNode is deprecated, use sourceVolumeNode() method instead.");
+    return this->sourceVolumeNode();
+    };
+  /// Deprecated. Use sourceVolumeNodeID() method instead.
+  Q_INVOKABLE QString masterVolumeNodeID()const
+    {
+    qWarning("qMRMLSegmentEditorWidget::masterVolumeNodeID is deprecated, use sourceVolumeNodeID() method instead.");
+    return this->sourceVolumeNodeID();
+    };
   /// Get segment ID of selected segment
   Q_INVOKABLE QString currentSegmentID()const;
 
@@ -155,12 +169,26 @@ public:
 
   /// Show/hide the segmentation node selector widget.
   bool segmentationNodeSelectorVisible() const;
-  /// Show/hide the master volume node selector widget.
-  bool masterVolumeNodeSelectorVisible() const;
-  /// If autoShowMasterVolumeNode is enabled then master volume is automatically
-  /// displayed in slice views when a new master volume is selected or layout is changed.
+  /// Show/hide the source volume node selector widget.
+  bool sourceVolumeNodeSelectorVisible() const;
+  /// If autoShowSourceVolumeNode is enabled then source volume is automatically
+  /// displayed in slice views when a new source volume is selected or layout is changed.
   /// Enabled by default.
-  bool autoShowMasterVolumeNode() const;
+  bool autoShowSourceVolumeNode() const;
+
+  /// Deprecated. Use sourceVolumeNodeSelectorVisible() method instead.
+  bool masterVolumeNodeSelectorVisible() const
+    {
+    qWarning("qMRMLSegmentEditorWidget::masterVolumeNodeSelectorVisible is deprecated, use sourceVolumeNodeSelectorVisible() method instead.");
+    return this->sourceVolumeNodeSelectorVisible();
+    };
+  /// Deprecated. Use autoShowSourceVolumeNode() method instead.
+  bool autoShowMasterVolumeNode() const
+    {
+    qWarning("qMRMLSegmentEditorWidget::autoShowMasterVolumeNode is deprecated, use autoShowSourceVolumeNode() method instead.");
+    return this->autoShowSourceVolumeNode();
+    };
+
   /// Show/hide the switch to Segmentations module button
   bool switchToSegmentationsButtonVisible() const;
   /// Undo/redo enabled.
@@ -188,15 +216,32 @@ public:
   Q_INVOKABLE void segmentationNodeSelectorRemoveAttribute(const QString& nodeType,
     const QString& attributeName);
 
-  /// Add node type attribute that filter the master volume nodes to display.
+  /// Add node type attribute that filter the source volume nodes to display.
   /// \sa qMRMLNodeComboBox::addAttribute
-  Q_INVOKABLE void masterVolumeNodeSelectorAddAttribute(const QString& nodeType,
+  Q_INVOKABLE void sourceVolumeNodeSelectorAddAttribute(const QString& nodeType,
     const QString& attributeName,
     const QVariant& attributeValue = QVariant());
-  /// Remove node type attribute filtering the displayed master volume nodes.
+  /// Remove node type attribute filtering the displayed reference volume nodes.
   /// \sa qMRMLNodeComboBox::addAttribute
-  Q_INVOKABLE void masterVolumeNodeSelectorRemoveAttribute(const QString& nodeType,
+  Q_INVOKABLE void sourceVolumeNodeSelectorRemoveAttribute(const QString& nodeType,
     const QString& attributeName);
+
+  /// Deprecated use sourceVolumeNodeSelectorAddAttribute method instead.
+  Q_INVOKABLE void masterVolumeNodeSelectorAddAttribute(const QString& nodeType,
+    const QString& attributeName,
+    const QVariant& attributeValue = QVariant())
+    {
+    qWarning("qMRMLSegmentEditorWidget::masterVolumeNodeSelectorAddAttribute is deprecated, use sourceVolumeNodeSelectorAddAttribute method instead.");
+    this->sourceVolumeNodeSelectorAddAttribute(nodeType, attributeName, attributeValue);
+    }
+  /// Deprecated use sourceVolumeNodeSelectorRemoveAttribute method instead.
+  Q_INVOKABLE void masterVolumeNodeSelectorRemoveAttribute(const QString& nodeType,
+    const QString& attributeName)
+		{
+    qWarning("qMRMLSegmentEditorWidget::masterVolumeNodeSelectorRemoveAttribute is deprecated,"
+      " use sourceVolumeNodeSelectorRemoveAttribute instead.");
+    this->sourceVolumeNodeSelectorRemoveAttribute(nodeType, attributeName);
+    }
 
   /// Get current interaction node.
   /// \sa SetInteractionNode()
@@ -237,12 +282,25 @@ public slots:
   void setSegmentationNode(vtkMRMLNode* node);
   /// Set segmentation MRML node by its ID
   void setSegmentationNodeID(const QString& nodeID);
-  /// Set master volume MRML node.
-  /// If master volume has multiple scalar components
+  /// Set source volume MRML node.
+  /// If source volume has multiple scalar components
   /// then only the first scalar component is used.
-  void setMasterVolumeNode(vtkMRMLNode* node);
-  /// Set master volume MRML node by its ID
-  void setMasterVolumeNodeID(const QString& nodeID);
+  void setSourceVolumeNode(vtkMRMLNode* node);
+  /// Set source volume MRML node by its ID
+  void setSourceVolumeNodeID(const QString& nodeID);
+
+  /// Deprecated. Use setSourceVolumeNode method instead.
+  void setMasterVolumeNode(vtkMRMLNode* node)
+    {
+    qWarning("qMRMLSegmentEditorWidget::setMasterVolumeNode is deprecated, use setSourceVolumeNode method instead.");
+    this->setSourceVolumeNode(node);
+    }
+  /// Deprecated. Use setSourceVolumeNodeID method instead.
+  void setMasterVolumeNodeID(const QString& nodeID)
+    {
+    qWarning("qMRMLSegmentEditorWidget::setMasterVolumeNodeID is deprecated, use setSourceVolumeNodeID method instead.");
+    this->setSourceVolumeNodeID(nodeID);
+    }
 
   /// Set selected segment by its ID
   void setCurrentSegmentID(const QString segmentID);
@@ -254,17 +312,17 @@ public slots:
   /// to allow reverting to the current state by using undo
   void saveStateForUndo();
 
-  /// Update modifierLabelmap, maskLabelmap, or alignedMasterVolumeNode
+  /// Update modifierLabelmap, maskLabelmap, or alignedSourceVolumeNode
   void updateVolume(void* volumePtr, bool& success);
 
   /// Show/hide the segmentation node selector widget.
   void setSegmentationNodeSelectorVisible(bool);
-  /// Show/hide the master volume node selector widget.
-  void setMasterVolumeNodeSelectorVisible(bool);
-  /// If autoShowMasterVolumeNode is enabled then master volume is automatically
-  /// displayed in slice views when a new master volume is selected or layout is changed.
+  /// Show/hide the source volume node selector widget.
+  void setSourceVolumeNodeSelectorVisible(bool);
+  /// If autoShowSourceVolumeNode is enabled then source volume is automatically
+  /// displayed in slice views when a new source volume is selected or layout is changed.
   /// Enabled by default.
-  void setAutoShowMasterVolumeNode(bool);
+  void setAutoShowSourceVolumeNode(bool);
   /// Show/hide the switch to Segmentations module button
   void setSwitchToSegmentationsButtonVisible(bool);
   /// Undo/redo enabled.
@@ -273,8 +331,27 @@ public slots:
   void setMaximumNumberOfUndoStates(int);
   /// Set whether the widget is read-only
   void setReadOnly(bool aReadOnly);
-  /// Enable/disable masking using master volume intensity
-  void toggleMasterVolumeIntensityMaskEnabled();
+  /// Enable/disable masking using source volume intensity
+  void toggleSourceVolumeIntensityMaskEnabled();
+
+  /// Deprecated. Use setSourceVolumeNodeSelectorVisible method instead.
+  void setMasterVolumeNodeSelectorVisible(bool visible)
+    {
+    qWarning("qMRMLSegmentEditorWidget::setMasterVolumeNodeSelectorVisible is deprecated, use setSourceVolumeNodeSelectorVisible method instead.");
+    this->setSourceVolumeNodeSelectorVisible(visible);
+    }
+  /// Deprecated. Use setAutoShowSourceVolumeNode method instead.
+  void setAutoShowMasterVolumeNode(bool autoShow)
+    {
+    qWarning("qMRMLSegmentEditorWidget::setAutoShowMasterVolumeNode is deprecated, use setAutoShowSourceVolumeNode method instead.");
+    this->setAutoShowSourceVolumeNode(autoShow);
+    }
+  /// Deprecated. Use toggleSourceVolumeIntensityMaskEnabled method instead.
+  void toggleMasterVolumeIntensityMaskEnabled()
+    {
+    qWarning("qMRMLSegmentEditorWidget::toggleMasterVolumeIntensityMaskEnabled is deprecated, use toggleSourceVolumeIntensityMaskEnabled method instead.");
+    this->toggleSourceVolumeIntensityMaskEnabled();
+    }
 
   /// Restores previous saved state of the segmentation
   void undo();
@@ -310,11 +387,18 @@ public slots:
   /// (and not filtered by unorderedEffectsVisible).
   void updateEffectList();
 
-  /// Show master volume in slice views by hiding foreground and label volumes.
+  /// Show source volume in slice views by hiding foreground and label volumes.
   /// \param forceShowInBackground If set to false then views will only change
-  ///   if master volume is not selected as either foreground or background volume.
+  ///   if source volume is not selected as either foreground or background volume.
   /// \param fitSlice Reset field of view to include all volumes.
-  void showMasterVolumeInSliceViewers(bool forceShowInBackground = false, bool fitSlice = false);
+  void showSourceVolumeInSliceViewers(bool forceShowInBackground = false, bool fitSlice = false);
+
+  // Deprecated. Use showSourceVolumeInSliceViewers method instead.
+  void showMasterVolumeInSliceViewers(bool forceShowInBackground = false, bool fitSlice = false)
+    {
+    qWarning("qMRMLSegmentEditorWidget::showMasterVolumeInSliceViewers is deprecated, use showSourceVolumeInSliceViewers method instead.");
+    this->showSourceVolumeInSliceViewers(forceShowInBackground, fitSlice);
+    }
 
   /// Rotate slice views to be aligned with segmentation node's internal
   /// labelmap representation axes.
@@ -346,8 +430,11 @@ signals:
   /// Emitted if different segment is selected in the segment list.
   void currentSegmentIDChanged(const QString&);
 
-  /// Emitted when the user selects a different master volume
-  /// (or any time master volume selection is changed in the segment editor parameter node).
+  /// Emitted when the user selects a different source volume
+  /// (or any time source volume selection is changed in the segment editor parameter node).
+  void sourceVolumeNodeChanged(vtkMRMLVolumeNode*);
+
+  /// Deprecated. Use sourceVolumeNodeChanged signal instead.
   void masterVolumeNodeChanged(vtkMRMLVolumeNode*);
 
   /// Emitted when the user selects a different segmentation node
@@ -357,8 +444,8 @@ signals:
 protected slots:
   /// Handles changing of current segmentation MRML node
   void onSegmentationNodeChanged(vtkMRMLNode* node);
-  /// Handles changing of the current master volume MRML node
-  void onMasterVolumeNodeChanged(vtkMRMLNode* node);
+  /// Handles changing of the current source volume MRML node
+  void onSourceVolumeNodeChanged(vtkMRMLNode* node);
   /// Handles segment selection changes
   void onSegmentSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
 
@@ -386,8 +473,8 @@ protected slots:
   void onCreateSurfaceToggled(bool on);
   /// Called if a segment or representation is added or removed
   void onSegmentAddedRemoved();
-  /// Called if master volume image data is changed
-  void onMasterVolumeImageDataModified();
+  /// Called if source volume image data is changed
+  void onSourceVolumeImageDataModified();
   /// Handle layout changes
   void onLayoutChanged(int layoutIndex);
   /// Handle display node view ID changes
@@ -397,15 +484,18 @@ protected slots:
   void onMaskModeChanged(int);
 
   /// Enable/disable threshold when checkbox is toggled
-  void onMasterVolumeIntensityMaskChecked(bool checked);
+  void onSourceVolumeIntensityMaskChecked(bool checked);
   /// Handles threshold values changed event
-  void onMasterVolumeIntensityMaskRangeChanged(double low, double high);
+  void onSourceVolumeIntensityMaskRangeChanged(double low, double high);
 
   /// Changed selected overwritable segments
   void onOverwriteModeChanged(int);
 
   /// Clean up when scene is closed
   void onMRMLSceneEndCloseEvent();
+
+  /// Updates needed after batch processing is done
+  void onMRMLSceneEndBatchProcessEvent();
 
   /// Set default parameters in parameter set node (after setting or closing scene)
   void initializeParameterSetNode();
@@ -435,12 +525,12 @@ protected:
   static void processEvents(vtkObject* caller, unsigned long eid, void* clientData, void* callData);
 
   void updateWidgetFromSegmentationNode();
-  void updateWidgetFromMasterVolumeNode();
+  void updateWidgetFromSourceVolumeNode();
   void updateEffectsSectionFromMRML();
 
-  /// Switches the master representation to binary labelmap. If the master representation
+  /// Switches the source representation to binary labelmap. If the source representation
   /// cannot be set to binary labelmap (e.g., the user does not allow it) then false is returned.
-  bool setMasterRepresentationToBinaryLabelmap();
+  bool setSourceRepresentationToBinaryLabelmap();
 
   /// Switches to Segmentations module and returns the module widget
   qSlicerAbstractModuleWidget* switchToSegmentationsModule();

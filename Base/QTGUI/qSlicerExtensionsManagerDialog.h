@@ -58,8 +58,14 @@ public:
   void accept() override;
   void reject() override;
 
+public slots:
+
+  /// Set focus to search box (so that user can find a module just by start typing its name)
+  void setFocusToSearchBox();
+
 protected slots:
   void onModelUpdated();
+  void onBatchProcessingChanged();
 
 protected:
   QScopedPointer<qSlicerExtensionsManagerDialogPrivate> d_ptr;

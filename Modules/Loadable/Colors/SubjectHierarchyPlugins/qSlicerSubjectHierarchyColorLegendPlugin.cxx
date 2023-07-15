@@ -84,7 +84,7 @@ void qSlicerSubjectHierarchyColorLegendPluginPrivate::init()
 {
   Q_Q(qSlicerSubjectHierarchyColorLegendPlugin);
 
-  this->ShowColorLegendAction = new QAction("Show color legend",q);
+  this->ShowColorLegendAction = new QAction(qSlicerSubjectHierarchyColorLegendPlugin::tr("Show color legend"), q);
   qSlicerSubjectHierarchyAbstractPlugin::setActionPosition(this->ShowColorLegendAction,
     qSlicerSubjectHierarchyAbstractPlugin::SectionDefault, 10);
   QObject::connect(this->ShowColorLegendAction, SIGNAL(toggled(bool)), q, SLOT(toggleVisibilityForCurrentItem(bool)));
@@ -103,7 +103,7 @@ qSlicerSubjectHierarchyColorLegendPlugin::qSlicerSubjectHierarchyColorLegendPlug
  : Superclass(parent)
  , d_ptr( new qSlicerSubjectHierarchyColorLegendPluginPrivate(*this) )
 {
-  this->m_Name = QString("ColorLegend");
+  this->m_Name = QString(/*no tr*/"ColorLegend");
 
   Q_D(qSlicerSubjectHierarchyColorLegendPlugin);
   d->init();
@@ -205,9 +205,7 @@ void qSlicerSubjectHierarchyColorLegendPlugin::toggleVisibilityForCurrentItem(bo
 //-----------------------------------------------------------------------------
 bool qSlicerSubjectHierarchyColorLegendPlugin::showItemInView(vtkIdType itemID, vtkMRMLAbstractViewNode* viewNode, vtkIdList* allItemsToShow)
 {
-  Q_D(qSlicerSubjectHierarchyColorLegendPlugin);
-
-  vtkMRMLViewNode* threeDViewNode = vtkMRMLViewNode::SafeDownCast(viewNode);
+  Q_UNUSED(allItemsToShow);
   vtkMRMLSliceNode* sliceNode = vtkMRMLSliceNode::SafeDownCast(viewNode);
 
   vtkMRMLSubjectHierarchyNode* shNode = qSlicerSubjectHierarchyPluginHandler::instance()->subjectHierarchyNode();

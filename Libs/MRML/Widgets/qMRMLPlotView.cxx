@@ -310,7 +310,7 @@ vtkSmartPointer<vtkPlot> qMRMLPlotViewPrivate::updatePlotFromPlotSeriesNode(vtkM
   // Common properties
   newPlot->SetWidth(plotSeriesNode->GetLineWidth());
   double* color = plotSeriesNode->GetColor();
-  newPlot->SetColor(color[0], color[1], color[2]);
+  newPlot->SetColorF(color[0], color[1], color[2]);
   newPlot->SetOpacity(plotSeriesNode->GetOpacity());
   if (newPlot->GetPen())
     {
@@ -1080,11 +1080,7 @@ void qMRMLPlotView::RemovePlotSelections()
     {
     return;
     }
-#if VTK_MAJOR_VERSION <= 7 || (VTK_MAJOR_VERSION <= 8 && VTK_MINOR_VERSION <= 1)
-  vtkWarningWithObjectMacro(this->chart(), "Removing plot selections not available in this version of VTK");
-#else
   this->chart()->RemovePlotSelections();
-#endif
 }
 
 // --------------------------------------------------------------------------

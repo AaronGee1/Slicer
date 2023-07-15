@@ -10,21 +10,27 @@
 
 ## I want to report a problem
 
-If something is definitely not working as intended then [file a bug report in the Slicer issue tracker](https://github.com/Slicer/Slicer/issues/new/choose).
+If you are not sure if Slicer behaves incorrectly or you are not using it properly then [ask about it on the Slicer Forum](https://discourse.slicer.org/c/support) (in the `Support` category). If you are _sure_ that Slicer is not working as intended then [submit a bug report in the Slicer issue tracker](https://github.com/Slicer/Slicer/issues/new?assignees=&labels=type%3Abug&template=bug_report.md).
 
-It is important to provide enough specific information so that a software developer can duplicate the problem. Follow instructions in the bug report template.
+In your question/report provide all the information that is described in the [bug reporting template](https://github.com/Slicer/Slicer/blob/main/.github/ISSUE_TEMPLATE/bug_report.md#summary).
 
-If the problem occurs by using the application from custom code, follow [SSCCE (Short, Self Contained, Correct, Example) approach](http://sscce.org).
+:::{tip}
 
-Don't be anonymous: real people trying hard to solve real problems are more likely to get valuable help. If you tell about yourself and your project then it may get more attention.
+Don't be anonymous: real people trying hard to solve real problems are more likely to get valuable help. If you tell about yourself and your project then it may get more attention and the problem may be resolved sooner.
+
+:::
 
 ## I would like to request enhancement or new feature
 
-First search on the Slicer forum to see if someone asked for this feature already. If you find a very similar request, tell us that you are interested in it too.
+First search on the [Slicer forum](https://discourse.slicer.org) and in the [Slicer issue tracker](https://github.com/Slicer/Slicer/issues?q=is%3Aissue+is%3Aopen+label%3Atype%3Aenhancement) to see if someone asked for this feature already. If you find a very similar request, tell us that you are interested in it too by adding a comment and/or adding a "thumbs-up" to the top post.
 
-If you cannot find a similar topic on the Slicer forum, write a post in the [Feature request category](https://discourse.slicer.org/c/support/feature-requests)
+If you cannot find a similar feature request, then write a post in the [Feature request category](https://discourse.slicer.org/c/support/feature-requests) to discuss it with Slicer developers and community members.
+
+:::{tip}
 
 If you write about yourself and your project then there is a higher chance that your request will be worked on. Describe what assistance you can offer for the implementation (your own time, funding, etc.).
+
+:::
 
 ## I would like to let the Slicer community know, how Slicer helped me in my research
 
@@ -44,12 +50,12 @@ Background: Funding for Slicer is provided through competitive mechanisms primar
 
     **Setting up software renderer on Windows:**
 
-    - Download Mesa OpenGL driver from <https://github.com/pal1000/mesa-dist-win/releases> (MSVC version - mesa3d-X.Y.Z-release-msvc.7z).
+    - Download Mesa OpenGL driver from <https://github.com/pal1000/mesa-dist-win/releases> (MSVC version - mesa3d-X.Y.Z-release-msvc.7z). Last tested with release https://github.com/pal1000/mesa-dist-win/releases/tag/22.2.0
     - Extract the archive and copy files from the x64 folder into the bin subfolder in the Slicer install tree.
     - Configure the rendere by setting environment variables then launch Slicer:
 
-        ```txt
-        set GALLIUM_DRIVER=swr
+        ```bat
+        set GALLIUM_DRIVER=llvmpipe
         set MESA_GL_VERSION_OVERRIDE=3.3COMPAT
         Slicer.exe
         ```
@@ -61,10 +67,10 @@ Background: Funding for Slicer is provided through competitive mechanisms primar
 - Slicer may not work if it is installed in a folder that has special characters in their name. Try installing Slicer in a path that only contains latin letters and numbers (a-z, 0-9).
 - Your Slicer settings might have become corrupted
   - Try launching Slicer using `Slicer.exe --disable-settings` (if it fixes the problem, delete Slicer.ini and Slicer-<yourslicerversion>.ini files from your Slicer settings directory.
-  - Rename or remove your Slicer settings directory (for example, `c:\Users\<yourusername>\AppData\Roaming\NA-MIC`). See instructions for getting the settings directory [here](settings.md#settings-file-location). Try to launch Slicer.
+  - Rename or remove your Slicer settings directory (for example, `c:\Users\<yourusername>\AppData\Roaming\slicer.org`). See instructions for getting the settings directory [here](settings.md#settings-file-location). Try to launch Slicer.
 - There may be conflicting/incompatible libraries in your system path (most likely caused by installing applications that place libraries in incorrect location on your system). Check your system logs for details and report the problem.
   - On Windows:
-    - Start Event Viewer (eventvwr.exe), select Windows Logs / Application, and find the application error. If there is a DLL loading problem a line similar to this will appear: `Faulting module path: <something>.dll`. If you found a line similar to this, then try the following workaround: Start a command window. Enter `set path=` to clear the path variable. Enter Slicer.exe to start Slicer. If Slicer starts successfully then you need to remove remove unnecessary items from the system path (or delete the libraries installed at incorrect locations).
+    - Start Event Viewer (eventvwr.exe), select Windows Logs / Application, and find the application error. If there is a DLL loading problem a line similar to this will appear: `Faulting module path: <something>.dll`. If you found a line similar to this, then try the following workaround: Start a command window. Enter `set path=` to clear the path variable. Enter Slicer.exe to start Slicer. If Slicer starts successfully then you need to remove unnecessary items from the system path (or delete the libraries installed at incorrect locations).
     - If Slicer still does not work then collect some more information and report the problem:
       - Get DLL dependency information using Dependency Walker tool:
         - Download depends.exe from [here](https://www.dependencywalker.com/)

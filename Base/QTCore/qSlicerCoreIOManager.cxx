@@ -35,6 +35,8 @@
 
 // MRML includes
 #include <vtkMRMLApplicationLogic.h>
+#include <vtkMRMLDisplayableNode.h>
+#include <vtkMRMLDisplayNode.h>
 #include <vtkMRMLMessageCollection.h>
 #include <vtkMRMLNode.h>
 #include <vtkMRMLTransformableNode.h>
@@ -98,24 +100,18 @@ qSlicerFileReader* qSlicerCoreIOManagerPrivate::reader(const QString& fileName)c
 QList<qSlicerFileReader*> qSlicerCoreIOManagerPrivate::readers(const QString& fileName)const
 {
   // Use a map so that we can access readers sorted by confidence.
-  // The more specific the filter that was matched, the higher confidence
-  // that the reader is more appropriate (e.g., *.seg.nrrd is more specific than *.nrrd;
-  // *.nrrd is more specific than *.*)
-  QMultiMap<int, qSlicerFileReader*> matchingReadersSortedByConfidence;
+  QMultiMap<double, qSlicerFileReader*> matchingReadersSortedByConfidence;
   foreach(qSlicerFileReader* reader, this->Readers)
     {
-    // reader->supportedNameFilters will return the length of the longest matched file extension
-    // in longestExtensionMatch variable.
-    int longestExtensionMatch = 0;
-    QStringList matchedNameFilters = reader->supportedNameFilters(fileName, &longestExtensionMatch);
-    if (!matchedNameFilters.empty() && reader->canLoadFile(fileName))
+    double confidence = reader->canLoadFileConfidence(fileName);
+    if (confidence > 0.0)
       {
-      matchingReadersSortedByConfidence.insert(longestExtensionMatch, reader);
+      matchingReadersSortedByConfidence.insert(confidence, reader);
       }
     }
   // Put matching readers in a list, with highest confidence readers pushed to the front
   QList<qSlicerFileReader*> matchingReaders;
-  QMapIterator<int, qSlicerFileReader*> i(matchingReadersSortedByConfidence);
+  QMapIterator<double, qSlicerFileReader*> i(matchingReadersSortedByConfidence);
   while (i.hasNext())
     {
     i.next();
@@ -139,10 +135,15 @@ QList<qSlicerFileWriter*> qSlicerCoreIOManagerPrivate::writers(
     scene = this->currentScene();
     }
 
-  vtkObject * object = scene->GetNodeByID(nodeID.toUtf8());
-  if (!object)
+  vtkObject* object = nullptr;
+  // empty nodeID means saving the scene
+  if (!nodeID.isEmpty())
     {
-    qWarning() << Q_FUNC_INFO << "warning: Unable to find node with ID" << nodeID << "in the given scene.";
+    object = scene->GetNodeByID(nodeID.toUtf8());
+    if (!object)
+      {
+      qWarning() << Q_FUNC_INFO << "warning: Unable to find node with ID" << nodeID << "in the given scene.";
+      }
     }
   QFileInfo file(fileName);
 
@@ -230,27 +231,69 @@ qSlicerIO::IOFileType qSlicerCoreIOManager
   return reader ? reader->fileType() : QString("NoFile");
 }
 
+qSlicerFileWriter* qSlicerCoreIOManager
+::writer(vtkObject* object, const QString& extension/*=QString()*/)const
+{
+  Q_D(const qSlicerCoreIOManager);
+
+  // best match: the writer that supports the node type and the specific extension
+  // closest match: the writer that supports the node type but not that specific extension
+  //
+  // If there are multiple matches then the one with the highest confidence is returned.
+
+  qSlicerFileWriter* bestMatch = nullptr;
+  double bestMatchConfidence = 0.0;
+  qSlicerFileWriter* closestMatch = nullptr;
+  double closestMatchConfidence = 0.0;
+
+  foreach (qSlicerFileWriter* writer, d->Writers)
+    {
+    double confidence = writer->canWriteObjectConfidence(object);
+    if (confidence > 0.0)
+      {
+      if (confidence > closestMatchConfidence)
+        {
+        closestMatch = writer;
+        closestMatchConfidence = confidence;
+        }
+      if (extension.isEmpty() || writer->extensions(object).contains(extension))
+        {
+        if (confidence > bestMatchConfidence)
+          {
+          bestMatch = writer;
+          bestMatchConfidence = confidence;
+          }
+        }
+      }
+    }
+
+  if (bestMatch)
+    {
+    return bestMatch;
+    }
+  if (closestMatch)
+    {
+    return closestMatch;
+    }
+  // No match
+  return nullptr;
+}
+
 //-----------------------------------------------------------------------------
 qSlicerIO::IOFileType qSlicerCoreIOManager
 ::fileWriterFileType(vtkObject* object, const QString& format/*=QString()*/)const
 {
   Q_D(const qSlicerCoreIOManager);
-  QList<qSlicerIO::IOFileType> matchingFileTypes;
-  // closest match is the writer that supports the node type but not
-  // that specific extension
-  QString closestMatch = QString("NoFile");
-  foreach (const qSlicerFileWriter* writer, d->Writers)
+
+  qSlicerFileWriter* writer = this->writer(object, format);
+  if (writer)
     {
-    if (writer->canWriteObject(object))
-      {
-      closestMatch = writer->fileType();
-      if (format.isEmpty() || writer->extensions(object).contains(format))
-        {
-        return writer->fileType();
-        }
-      }
+    return writer->fileType();
     }
-  return closestMatch;
+  else
+    {
+    return QString("NoFile");
+    }
 }
 
 //-----------------------------------------------------------------------------
@@ -309,13 +352,23 @@ QStringList qSlicerCoreIOManager::fileWriterExtensions(
   vtkObject* object)const
 {
   Q_D(const qSlicerCoreIOManager);
-  QStringList matchingExtensions;
+  // Use a map so that we can access writers sorted by confidence.
+  QMultiMap<double, qSlicerFileWriter*> matchingWritersSortedByConfidence;
   foreach(qSlicerFileWriter* writer, d->Writers)
     {
-    if (writer->canWriteObject(object))
+    double confidence = writer->canWriteObjectConfidence(object);
+    if (confidence > 0.0)
       {
-      matchingExtensions << writer->extensions(object);
+      matchingWritersSortedByConfidence.insert(confidence, writer);
       }
+    }
+  // Put extensions from matching writers in a list, with highest confidence writer pushed to the front
+  QStringList matchingExtensions;
+  QMapIterator<double, qSlicerFileWriter*> i(matchingWritersSortedByConfidence);
+  while (i.hasNext())
+    {
+    i.next();
+    matchingExtensions = i.value()->extensions(object) + matchingExtensions;
     }
   matchingExtensions.removeDuplicates();
   return matchingExtensions;
@@ -486,19 +539,13 @@ qSlicerIOOptions* qSlicerCoreIOManager::fileWriterOptions(
   vtkObject* object, const QString& extension)const
 {
   Q_D(const qSlicerCoreIOManager);
-  qSlicerFileWriter* bestWriter = nullptr;
-  foreach(qSlicerFileWriter* writer, d->Writers)
+  qSlicerFileWriter* bestWriter = this->writer(object, extension);
+  if (!bestWriter)
     {
-    if (writer->canWriteObject(object))
-      {
-      if (writer->extensions(object).contains(extension))
-        {
-        writer->setMRMLScene(d->currentScene());
-        bestWriter = writer;
-        }
-      }
+    return nullptr;
     }
-  return bestWriter ? bestWriter->options() : nullptr;
+  bestWriter->setMRMLScene(d->currentScene());
+  return bestWriter->options();
 }
 
 //-----------------------------------------------------------------------------
@@ -575,7 +622,8 @@ bool qSlicerCoreIOManager::loadNodes(const qSlicerIO::IOFileType& fileType,
   // If no readers were able to read and load the file(s), success will remain false
   bool success = false;
   int numberOfUserMessagesBefore = userMessages ? userMessages->GetNumberOfMessages() : 0;
-  QString userMessagePrefix = QString("Loading %1 - ").arg(parameters["fileName"].toString());
+  //: %1 is the filename
+  QString userMessagePrefix = tr("Loading %1").arg(parameters["fileName"].toString()) + " - ";
 
   QStringList nodes;
   foreach (qSlicerFileReader* reader, readers)
@@ -584,7 +632,8 @@ bool qSlicerCoreIOManager::loadNodes(const qSlicerIO::IOFileType& fileType,
     timeProbe.start();
     reader->userMessages()->ClearMessages();
     reader->setMRMLScene(d->currentScene());
-    if (!reader->canLoadFile(parameters["fileName"].toString()))
+    double confidence = reader->canLoadFileConfidence(parameters["fileName"].toString());
+    if (confidence <= 0.0)
       {
       continue;
       }
@@ -610,7 +659,7 @@ bool qSlicerCoreIOManager::loadNodes(const qSlicerIO::IOFileType& fileType,
   if (!success && userMessages != nullptr && userMessages->GetNumberOfMessages() == numberOfUserMessagesBefore)
     {
     // Make sure that at least one message is logged if reading failed.
-    userMessages->AddMessage(vtkCommand::ErrorEvent, (QString(tr("%1 load failed.")).arg(userMessagePrefix)).toStdString());
+    userMessages->AddMessage(vtkCommand::ErrorEvent, (tr("%1 load failed.").arg(userMessagePrefix)).toStdString());
     }
 
   loadedFileParameters.insert("nodeIDs", nodes);
@@ -776,15 +825,28 @@ bool qSlicerCoreIOManager::saveNodes(qSlicerIO::IOFileType fileType,
   const QList<qSlicerFileWriter*> writers = d->writers(fileType, parameters, scene);
   if (writers.isEmpty())
     {
-    qWarning() << "No writer found to write file" << fileName
-               << "of type" << fileType;
+    qCritical() << Q_FUNC_INFO << "error: No writer found to write file" << fileName << "of type" << fileType;
+    if (userMessages)
+      {
+      userMessages->AddMessage(vtkCommand::ErrorEvent,
+        (tr("No writer found to write file %1 of type %2.").arg(fileName).arg(fileType)).toStdString());
+      }
     return false;
     }
 
-  // Create the directory that the file will be saved to, if it does not exist
-  if (!QFileInfo(fileName).dir().mkpath(".")) // Note that if the directory already exists, mkpath simply returns true
+  // Create the directory that the file will be saved to, if it does not exist.
+  // Note: We must check if the directory exist and if it does then we don't call mkpath, because
+  // mkpath incorrectly returns false (meaning: failed to create folder) if the directory
+  // is the root folder (for example "D:\").
+  if (!QFileInfo(fileName).dir().exists() && !QFileInfo(fileName).dir().mkpath("."))
     {
-    qWarning() << Q_FUNC_INFO << ": Unable to create directory" << QFileInfo(fileName).absolutePath();
+    qCritical() << Q_FUNC_INFO << "error: Unable to create directory" << QFileInfo(fileName).absolutePath();
+    if (userMessages)
+      {
+      userMessages->AddMessage(vtkCommand::ErrorEvent,
+        (tr("Unable to create directory '%1'").arg(QFileInfo(fileName).absolutePath())).toStdString());
+      }
+    return false;
     }
 
   QStringList nodes;
@@ -811,6 +873,12 @@ bool qSlicerCoreIOManager::saveNodes(qSlicerIO::IOFileType fileType,
   if (!writeSuccess)
     {
     // no appropriate writer was found
+    qCritical() << Q_FUNC_INFO << "error: Saving failed with all writers found for file" << fileName << "of type" << fileType;
+    if (userMessages)
+      {
+      userMessages->AddMessage(vtkCommand::ErrorEvent,
+        (tr("Saving failed with all writers found for file '%1' of type '%2'.").arg(fileName).arg(fileType)).toStdString());
+      }
     return false;
     }
 
@@ -819,6 +887,11 @@ bool qSlicerCoreIOManager::saveNodes(qSlicerIO::IOFileType fileType,
     {
     // the writer did not report error
     // but did not report any successfully written nodes either
+    qCritical() << Q_FUNC_INFO << "error: No nodes were saved in scene";
+    if (userMessages)
+      {
+      userMessages->AddMessage(vtkCommand::ErrorEvent, tr("No nodes were saved in the scene").toStdString());
+      }
     return false;
     }
 
@@ -970,6 +1043,25 @@ bool qSlicerCoreIOManager::exportNodes(
       continue;
       }
 
+    // Some data files store display properties (for example: markups), therefore we need to copy the display node as well.
+    vtkMRMLDisplayableNode* displayableNode = vtkMRMLDisplayableNode::SafeDownCast(storableNode);
+    vtkMRMLDisplayableNode* temporaryDisplayableNode = vtkMRMLDisplayableNode::SafeDownCast(temporaryStorableNode);
+    if (displayableNode && temporaryDisplayableNode && displayableNode->GetDisplayNode())
+      {
+      vtkMRMLDisplayNode* temporaryDisplayNode = vtkMRMLDisplayNode::SafeDownCast(
+        temporaryScene->AddNewNodeByClass(displayableNode->GetDisplayNode()->GetClassName()));
+      if (temporaryDisplayNode)
+        {
+        temporaryDisplayNode->CopyContent(displayableNode->GetDisplayNode(), false);
+        temporaryDisplayableNode->SetAndObserveDisplayNodeID(temporaryDisplayNode->GetID());
+        }
+      else
+        {
+        userMessages->AddMessage(vtkCommand::WarningEvent,
+          (tr("Unable to save display properties for %1 in temporary scene.").arg(storableNode->GetName())).toStdString());
+        }
+      }
+
     // Finally, applying saving logic to the the temporary scene
     if (!this->saveNodes(fileType, temporarySceneParameters, userMessages, temporaryScene))
       {
@@ -1085,6 +1177,18 @@ void qSlicerCoreIOManager::registerIO(qSlicerIO* io)
     {
     io->setParent(this);
     }
+}
+
+//-----------------------------------------------------------------------------
+int qSlicerCoreIOManager::registeredFileReaderCount(const qSlicerIO::IOFileType& fileType) const
+{
+  return this->readers(fileType).count();
+}
+
+//-----------------------------------------------------------------------------
+int qSlicerCoreIOManager::registeredFileWriterCount(const qSlicerIO::IOFileType& fileType) const
+{
+  return this->writers(fileType).count();
 }
 
 //-----------------------------------------------------------------------------

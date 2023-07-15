@@ -70,7 +70,7 @@ folderPlugin.setDisplayVisibility(folderItemID, 1)
 
 ### Filter items in TreeView or ComboBox
 
-Displayed items can be filtered using *setAttributeFilter* method. An example of the usage can be found in the [unit test](https://github.com/Slicer/Slicer/blob/e66e3b08e35384526528e6ae678e9ec9f079f286/Applications/SlicerApp/Testing/Python/SubjectHierarchyGenericSelfTest.py#L352-L360). Modified version here:
+Displayed items can be filtered using *setAttributeFilter* method. An example of the usage can be found in the [unit test](https://github.com/Slicer/Slicer/blob/53fb5b8acd41cb36eafbc5c4b66ff39c8434f4c6/Applications/SlicerApp/Testing/Python/SubjectHierarchyGenericSelfTest.py#L352-L360). Modified version here:
 
 ```python
 print(shTreeView.displayedItemCount()) # 5
@@ -102,9 +102,24 @@ class MyListenerClass(VTKObservationMixin):
 
 ### Subject hierarchy plugin offering view context menu action
 
-If an object that supports view context menus (e.g. markups) is right-clicked in a slice or 3D view, it can offer custom actions. Due to internal limitations these plugins must be set up differently, as explained [here](https://github.com/Slicer/Slicer/blob/master/Modules/Loadable/Annotations/SubjectHierarchyPlugins/AnnotationsSubjectHierarchyPlugin.py#L96-L107). This example makes it easier to create such a plugin.
+If an object that supports view context menus (e.g. markups) is right-clicked in a slice or 3D view, it can offer custom actions.
 
-This text must be saved as `ViewContextMenu.py` and placed in a folder that is added to "Additional module paths" in Application Settings / Modules section.
+Due to internal limitations, in order to use view menus in scripted plugins, it needs to be registered differently, so that the Python API can be fully built by the time this function is called. The following changes are necessary compared to regular initialization:
+
+1. Remove the following line from constructor
+
+```
+AbstractScriptedSubjectHierarchyPlugin.__init__(self, scriptedPlugin)
+```
+
+2. In addition to the initialization where the scripted plugin is instantialized and the source set, the plugin also needs to be registered manually:
+
+```
+pluginHandler = slicer.qSlicerSubjectHierarchyPluginHandler.instance()
+pluginHandler.registerPlugin(scriptedPlugin)
+```
+
+This is a complete example. It must be saved as `ViewContextMenu.py` and placed in a folder that is added to "Additional module paths" in Application Settings / Modules section.
 
 ```python
 import vtk, qt, ctk, slicer
@@ -158,9 +173,9 @@ class ViewContextMenuSubjectHierarchyPlugin(AbstractScriptedSubjectHierarchyPlug
     slicer.util.messageBox("This works!")
 ```
 
-### Use whitelist to customize view menu
+### Use allowlist to customize view menu
 
-When right-clicking certain types of nodes in the 2D/3D views, a subject hierarchy menu pops up. If menu actions need to be removed, a whitelist can be used to specify the ones that should show up.
+When right-clicking certain types of nodes in the 2D/3D views, a subject hierarchy menu pops up. If menu actions need to be removed, an allowlist can be used to specify the ones that should show up.
 
 ```python
 pluginHandler = slicer.qSlicerSubjectHierarchyPluginHandler.instance()

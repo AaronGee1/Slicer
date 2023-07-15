@@ -54,9 +54,9 @@ class VTK_MRML_EXPORT vtkMRMLScalarVolumeDisplayNode : public vtkMRMLVolumeDispl
   /// Write this node's information to a MRML file in XML format.
   void WriteXML(ostream& of, int indent) override;
 
-  ///
-  /// Copy the node's attributes to this object
-  void Copy(vtkMRMLNode *node) override;
+  /// Copy node content (excludes basic data, such as name and node references).
+  /// \sa vtkMRMLNode::CopyContent
+  vtkMRMLCopyContentMacro(vtkMRMLScalarVolumeDisplayNode);
 
   ///
   /// Get node XML tag name (like Volume, Model)
@@ -67,10 +67,19 @@ class VTK_MRML_EXPORT vtkMRMLScalarVolumeDisplayNode : public vtkMRMLVolumeDispl
   /// Display Information
   //--------------------------------------------------------------------------
 
-  ///
-  /// Window/Level cannot be edited through the user interface
-  vtkGetMacro(WindowLevelLocked, bool);
-  vtkSetMacro(WindowLevelLocked, bool);
+  /// \deprecated
+  bool GetWindowLevelLocked()
+    {
+    vtkWarningMacro("vtkMRMLScalarVolumeDisplayNode::GetWindowLevelLocked method is deprecated. To check if the mouse mode cannot change window/level, get info from the interaction node. "
+                    "e.g. slicer.app.applicationLogic().GetInteractionNode().GetCurrentInteractionMode() == slicer.vtkMRMLInteractionNode.AdjustWindowLevel");
+    return false;
+    };
+  /// \deprecated
+  virtual void SetWindowLevelLocked(bool)
+    {
+    vtkWarningMacro("vtkMRMLScalarVolumeDisplayNode::SetWindowLevelLocked method is deprecated. To prevent the mouse from changing window/level, set the interaction node to something other than AdjustWindowLevel. "
+                    "e.g. slicer.app.applicationLogic().GetInteractionNode().SetCurrentInteractionMode(slicer.vtkMRMLInteractionNode.ViewTransform)");
+    };
 
   ///
   /// Specifies whether windowing and leveling are to be performed automatically
@@ -127,7 +136,7 @@ class VTK_MRML_EXPORT vtkMRMLScalarVolumeDisplayNode : public vtkMRMLVolumeDispl
   virtual void SetThreshold(double lower, double upper);
 
   ///
-  /// Set/Get interpolate reformated slices
+  /// Set/Get interpolate reformatted slices
   vtkGetMacro(Interpolate, int);
   vtkSetMacro(Interpolate, int);
   vtkBooleanMacro(Interpolate, int);
@@ -196,7 +205,7 @@ protected:
   void CalculateAutoLevels();
 
   /// Return the image data with scalar type, it can be in the middle of the
-  /// pipeline, it's typically the input of the threshold/windowlevel filters
+  /// pipeline, it's typically the input of the Threshold/WindowLevel filters
   vtkImageData* GetScalarImageData();
   virtual vtkAlgorithmOutput* GetScalarImageDataConnection();
 
@@ -221,7 +230,6 @@ protected:
 
   /// Booleans
   int Interpolate;
-  bool WindowLevelLocked;
   int AutoWindowLevel;
   int ApplyThreshold;
   int AutoThreshold;

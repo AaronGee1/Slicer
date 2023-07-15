@@ -82,7 +82,7 @@ vtkMRMLSegmentationNode::vtkMRMLSegmentationNode()
   vtkSmartPointer<vtkSegmentation> segmentation = vtkSmartPointer<vtkSegmentation>::New();
   this->SetAndObserveSegmentation(segmentation);
 
-  this->ContentModifiedEvents->InsertNextValue(vtkSegmentation::MasterRepresentationModified);
+  this->ContentModifiedEvents->InsertNextValue(vtkSegmentation::SourceRepresentationModified);
   this->ContentModifiedEvents->InsertNextValue(vtkSegmentation::ContainedRepresentationNamesModified);
   this->ContentModifiedEvents->InsertNextValue(vtkSegmentation::SegmentAdded);
   this->ContentModifiedEvents->InsertNextValue(vtkSegmentation::SegmentRemoved);
@@ -223,7 +223,7 @@ void vtkMRMLSegmentationNode::SetAndObserveSegmentation(vtkSegmentation* segment
   if (this->Segmentation)
     {
     vtkEventBroker::GetInstance()->AddObservation(
-      this->Segmentation, vtkSegmentation::MasterRepresentationModified, this, this->SegmentationModifiedCallbackCommand);
+      this->Segmentation, vtkSegmentation::SourceRepresentationModified, this, this->SegmentationModifiedCallbackCommand);
     vtkEventBroker::GetInstance()->AddObservation(
       this->Segmentation, vtkSegmentation::SegmentAdded, this, this->SegmentationModifiedCallbackCommand);
     vtkEventBroker::GetInstance()->AddObservation(
@@ -256,8 +256,8 @@ void vtkMRMLSegmentationNode::SegmentationModifiedCallback(vtkObject* vtkNotUsed
     }
   switch (eid)
     {
-    case vtkSegmentation::MasterRepresentationModified:
-      self->OnMasterRepresentationModified();
+    case vtkSegmentation::SourceRepresentationModified:
+      self->OnSourceRepresentationModified();
       self->InvokeCustomModifiedEvent(eid, callData);
       break;
     case vtkSegmentation::RepresentationModified:
@@ -294,7 +294,7 @@ void vtkMRMLSegmentationNode::SegmentationModifiedCallback(vtkObject* vtkNotUsed
 }
 
 //---------------------------------------------------------------------------
-void vtkMRMLSegmentationNode::OnMasterRepresentationModified()
+void vtkMRMLSegmentationNode::OnSourceRepresentationModified()
 {
   // Reset supported write file types
   vtkMRMLSegmentationStorageNode* storageNode =  vtkMRMLSegmentationStorageNode::SafeDownCast(this->GetStorageNode());
@@ -460,7 +460,7 @@ void vtkMRMLSegmentationNode::ApplyTransform(vtkAbstractTransform* transform)
     }
 
   // Apply transform on segmentation
-  bool wasEnabled = this->Segmentation->SetMasterRepresentationModifiedEnabled(false);
+  bool wasEnabled = this->Segmentation->SetSourceRepresentationModifiedEnabled(false);
   vtkSmartPointer<vtkTransform> linearTransform = vtkSmartPointer<vtkTransform>::New();
   if (vtkOrientedImageDataResample::IsTransformLinear(transform, linearTransform))
     {
@@ -470,11 +470,11 @@ void vtkMRMLSegmentationNode::ApplyTransform(vtkAbstractTransform* transform)
     {
     this->Segmentation->ApplyNonLinearTransform(transform);
     }
-  this->Segmentation->SetMasterRepresentationModifiedEnabled(wasEnabled);
-  this->Segmentation->InvalidateNonMasterRepresentations();
+  this->Segmentation->SetSourceRepresentationModifiedEnabled(wasEnabled);
+  this->Segmentation->InvalidateNonSourceRepresentations();
 
   // Make sure preferred display representations exist after transformation
-  // (it is invalidated in the process unless it is the master representation)
+  // (it is invalidated in the process unless it is the source representation)
   char* preferredDisplayRepresentation2D = nullptr;
   char* preferredDisplayRepresentation3D = nullptr;
   vtkMRMLSegmentationDisplayNode* displayNode = vtkMRMLSegmentationDisplayNode::SafeDownCast(this->GetDisplayNode());
@@ -485,7 +485,7 @@ void vtkMRMLSegmentationNode::ApplyTransform(vtkAbstractTransform* transform)
     }
 
   // Make sure preferred display representations exist after transformation
-  // (it was invalidated in the process unless it is the master representation)
+  // (it was invalidated in the process unless it is the source representation)
   if (displayNode)
     {
     if (preferredDisplayRepresentation2D)
@@ -570,7 +570,7 @@ bool vtkMRMLSegmentationNode::GenerateMergedLabelmapForAllSegments(vtkOrientedIm
 bool vtkMRMLSegmentationNode::GenerateEditMask(vtkOrientedImageData* maskImage, int editMode,
   vtkOrientedImageData* referenceGeometry,
   std::string editedSegmentID/*=""*/, std::string maskSegmentID/*=""*/,
-  vtkOrientedImageData* masterVolume/*=nullptr*/, double editableIntensityRange[2]/*=nullptr*/,
+  vtkOrientedImageData* sourceVolume/*=nullptr*/, double editableIntensityRange[2]/*=nullptr*/,
   vtkMRMLSegmentationDisplayNode* displayNode/*=nullptr*/)
 {
   if (!maskImage)
@@ -698,11 +698,11 @@ bool vtkMRMLSegmentationNode::GenerateEditMask(vtkOrientedImageData* maskImage, 
     }
 
   // Apply threshold mask if paint threshold is turned on
-  if (masterVolume != nullptr && editableIntensityRange != nullptr)
+  if (sourceVolume != nullptr && editableIntensityRange != nullptr)
     {
     // Create threshold image
     vtkNew<vtkImageThreshold> threshold;
-    threshold->SetInputData(masterVolume);
+    threshold->SetInputData(sourceVolume);
     threshold->ThresholdBetween(editableIntensityRange[0], editableIntensityRange[1]);
     threshold->SetInValue(1);
     threshold->SetOutValue(0);
@@ -710,9 +710,9 @@ bool vtkMRMLSegmentationNode::GenerateEditMask(vtkOrientedImageData* maskImage, 
     threshold->Update();
     vtkNew<vtkOrientedImageData> thresholdMask; //  == 0 in editable region
     thresholdMask->ShallowCopy(threshold->GetOutput());
-    vtkNew<vtkMatrix4x4> masterVolumeToWorldMatrix;
-    masterVolume->GetImageToWorldMatrix(masterVolumeToWorldMatrix.GetPointer());
-    thresholdMask->SetImageToWorldMatrix(masterVolumeToWorldMatrix.GetPointer());
+    vtkNew<vtkMatrix4x4> sourceVolumeToWorldMatrix;
+    sourceVolume->GetImageToWorldMatrix(sourceVolumeToWorldMatrix.GetPointer());
+    thresholdMask->SetImageToWorldMatrix(sourceVolumeToWorldMatrix.GetPointer());
 
     if (!vtkOrientedImageDataResample::ApplyImageMask(maskImage, thresholdMask.GetPointer(), 1))
       {
@@ -1003,26 +1003,26 @@ vtkPolyData* vtkMRMLSegmentationNode::GetClosedSurfaceInternalRepresentation(con
 }
 
 //---------------------------------------------------------------------------
-bool vtkMRMLSegmentationNode::SetMasterRepresentationToBinaryLabelmap()
+bool vtkMRMLSegmentationNode::SetSourceRepresentationToBinaryLabelmap()
 {
   if (!this->Segmentation)
     {
-    vtkErrorMacro("SetMasterRepresentationToBinaryLabelmap: Invalid segmentation");
+    vtkErrorMacro("SetSourceRepresentationToBinaryLabelmap: Invalid segmentation");
     return false;
     }
-  this->Segmentation->SetMasterRepresentationName(vtkSegmentationConverter::GetSegmentationBinaryLabelmapRepresentationName());
+  this->Segmentation->SetSourceRepresentationName(vtkSegmentationConverter::GetSegmentationBinaryLabelmapRepresentationName());
   return true;
 }
 
 //---------------------------------------------------------------------------
-bool vtkMRMLSegmentationNode::SetMasterRepresentationToClosedSurface()
+bool vtkMRMLSegmentationNode::SetSourceRepresentationToClosedSurface()
 {
   if (!this->Segmentation)
     {
-    vtkErrorMacro("SetMasterRepresentationToClosedSurface: Invalid segmentation");
+    vtkErrorMacro("SetSourceRepresentationToClosedSurface: Invalid segmentation");
     return false;
     }
-  this->Segmentation->SetMasterRepresentationName(vtkSegmentationConverter::GetSegmentationClosedSurfaceRepresentationName());
+  this->Segmentation->SetSourceRepresentationName(vtkSegmentationConverter::GetSegmentationClosedSurfaceRepresentationName());
   return true;
 }
 

@@ -38,8 +38,8 @@
  * vtkSlicerMarkupsWidgetRepresentation vtkMRMLAbstractWidget vtkPointPlacer
 */
 
-#ifndef vtkSlicerMarkupsRepresentation_h
-#define vtkSlicerMarkupsRepresentation_h
+#ifndef vtkSlicerMarkupsWidgetRepresentation_h
+#define vtkSlicerMarkupsWidgetRepresentation_h
 
 #include "vtkSlicerMarkupsModuleVTKWidgetsExport.h"
 
@@ -88,6 +88,7 @@ public:
 
   /// Update the representation from markups node
   void UpdateFromMRML(vtkMRMLNode* caller, unsigned long event, void *callData = nullptr) override;
+  virtual void UpdateFromMRMLInternal(vtkMRMLNode* caller, unsigned long event, void *callData = nullptr);
 
   /// Methods to make this class behave as a vtkProp.
   void GetActors(vtkPropCollection*) override;
@@ -108,7 +109,7 @@ public:
   /// Get the nth control point.
   virtual vtkMRMLMarkupsNode::ControlPoint *GetNthControlPoint(int n);
 
-  /// Set/Get the vtkMRMLMarkipsNode connected with this representation
+  /// Set/Get the vtkMRMLMarkupsNode connected with this representation
   virtual void SetMarkupsDisplayNode(vtkMRMLMarkupsDisplayNode *markupsDisplayNode);
   virtual vtkMRMLMarkupsDisplayNode* GetMarkupsDisplayNode();
   virtual vtkMRMLMarkupsNode* GetMarkupsNode();
@@ -335,7 +336,7 @@ protected:
 
   vtkTimeStamp MarkupsTransformModifiedTime;
 
-  double* GetWidgetColor(int controlPointType);
+  double* GetWidgetColor(int controlPointType) VTK_SIZEHINT(3);
 
   ControlPointsPipeline* ControlPoints[NumberOfControlPointTypes]; // Unselected, Selected, Active, Project, ProjectBehind
 

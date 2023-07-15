@@ -17,6 +17,7 @@
 
 // Qt includes
 #include <QFileInfo>
+#include <QTextStream>
 
 // Slicer includes
 #include "qSlicerMarkupsReader.h"
@@ -40,7 +41,7 @@ class qSlicerMarkupsReaderPrivate
 };
 
 //-----------------------------------------------------------------------------
-/// \ingroup Slicer_QtModules_Annotations
+/// \ingroup Slicer_QtModules_Markups
 //-----------------------------------------------------------------------------
 qSlicerMarkupsReader::qSlicerMarkupsReader(QObject* _parent)
   : Superclass(_parent)
@@ -75,23 +76,51 @@ vtkSlicerMarkupsLogic* qSlicerMarkupsReader::markupsLogic()const
 //-----------------------------------------------------------------------------
 QString qSlicerMarkupsReader::description()const
 {
-  return "Markups";
+  return tr("Markups");
 }
 
 //-----------------------------------------------------------------------------
-qSlicerIO::IOFileType qSlicerMarkupsReader::fileType()const
+qSlicerIO::IOFileType qSlicerMarkupsReader::fileType() const
 {
   return QString("MarkupsFile");
 }
 
 //-----------------------------------------------------------------------------
-QStringList qSlicerMarkupsReader::extensions()const
+QStringList qSlicerMarkupsReader::extensions() const
 {
   return QStringList()
-    << "Markups (*.mrk.json)"
-    << "Markups (*.json)"
-    << "Markups Fiducials (*.fcsv)"
-    << "Annotation Fiducial (*.acsv)";
+         << tr("Markups") + " (*.mrk.json)"
+         << tr("Markups") + " (*.json)"
+         << tr("Markups Fiducials") + " (*.fcsv)";
+}
+
+//----------------------------------------------------------------------------
+double qSlicerMarkupsReader::canLoadFileConfidence(const QString& fileName)const
+{
+  double confidence = Superclass::canLoadFileConfidence(fileName);
+
+  // Confidence for .json file is 0.55 (5 characters in the file extension matched),
+  // for composite file extensions (.mrk.json) it would be 0.59.
+  // Therefore, confidence below 0.56 means that we got a generic file extension
+  // that we need to inspect further.
+  if (confidence > 0 && confidence < 0.56)
+    {
+    // Not a composite file extension, inspect the content
+    QString upperCaseFileName = fileName.toUpper();
+    if (upperCaseFileName.endsWith("JSON"))
+      {
+      QFile file(fileName);
+      if (file.open(QIODevice::ReadOnly | QIODevice::Text))
+        {
+        QTextStream in(&file);
+        // Markups json files contain a schema URL like .../Schema/markups-schema-v1.0.3.json
+        // around position 150, read a bit further to account for slight variations in the header.
+        QString line = in.read(300);
+        confidence = (line.contains("/markups-schema-v1.") ? 0.6 : 0.4);
+        }
+      }
+    }
+  return confidence;
 }
 
 //-----------------------------------------------------------------------------

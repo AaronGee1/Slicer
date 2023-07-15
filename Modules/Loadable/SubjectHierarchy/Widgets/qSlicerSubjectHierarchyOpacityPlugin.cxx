@@ -79,7 +79,7 @@ void qSlicerSubjectHierarchyOpacityPluginPrivate::init()
 {
   Q_Q(qSlicerSubjectHierarchyOpacityPlugin);
 
-  this->OpacityMenu = new QMenu(tr("Opacity"));
+  this->OpacityMenu = new QMenu(qSlicerSubjectHierarchyOpacityPlugin::tr("Opacity"));
   this->OpacitySlider = new ctkDoubleSlider(this->OpacityMenu);
   this->OpacitySlider->setOrientation(Qt::Horizontal);
   this->OpacitySlider->setRange(0.0, 1.0);
@@ -89,8 +89,8 @@ void qSlicerSubjectHierarchyOpacityPluginPrivate::init()
   opacityAction->setDefaultWidget(this->OpacitySlider);
   this->OpacityMenu->addAction(opacityAction);
 
-  this->OpacityAction = new QAction("Opacity",q);
-  this->OpacityAction->setToolTip("Set item opacity in the sub-menu");
+  this->OpacityAction = new QAction(qSlicerSubjectHierarchyOpacityPlugin::tr("Opacity"), q);
+  this->OpacityAction->setToolTip(qSlicerSubjectHierarchyOpacityPlugin::tr("Set item opacity in the sub-menu"));
   this->OpacityAction->setMenu(this->OpacityMenu);
 }
 

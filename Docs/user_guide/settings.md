@@ -30,7 +30,9 @@ Directory where modules can store their temporary outputs if needed.
 
 #### Additional module paths
 
-List of directories scanned at startup to load additional modules. Any CLI, Loadable or scripted modules located in these paths will be loaded. Extensions are listed in the list, to remove an extension, use the [Extensions Manager](extensions_manager) instead.
+List of directories scanned at startup to load additional modules. Any CLI, Loadable or scripted modules located in these paths will be loaded.
+
+Module folders of extensions are included in this list. To remove modules of an extension, it is recommended to use the [Extensions Manager](extensions_manager.md) instead of just removing its module paths.
 
 It is also possible to start Slicer by temporarily adding module paths (not saved in settings) by passing the arguments in the command line.
 
@@ -69,11 +71,24 @@ To add a module, drag&drop it from the *Modules* list above. Then use the advanc
 
 The overall theme of Slicer is controlled by the selected Style:
 - Slicer (default): it sets the style based on theme settings set by the operating system.
-  For example, on Windows if [dark mode][(https://blogs.windows.com/windowsexperience/2016/08/08/windows-10-tip-personalize-your-pc-by-enabling-the-dark-theme/)]
+  For example, on Windows if [dark mode](https://blogs.windows.com/windowsexperience/2016/08/08/windows-10-tip-personalize-your-pc-by-enabling-the-dark-theme/)
   is turned on for apps, then the `Dark Slicer` style will be used upon launching Slicer. Currently, automatic detection of dark mode is not available on Linux,
   therefore use needs to manually select `Dark Slicer` style for a dark color scheme.
 - Light Slicer: application window background is bright, regardless of operating system settings.
 - Dark Slicer: application window background is dark, regardless of operating system settings.
+
+### Developer
+
+#### Developer mode
+
+Enable the following features:
+
+* [Module selection toolbar](user_interface.md#toolbar): Modules associated with the _Testing_ category are visible by default.
+* [WebServer module](modules/webserver.md): Javascript logging is enabled by default.
+* [Module panel](user_interface.md#module-panel): `Reload & Test` module panel section is displayed for scripted modules. It includes controls for reloading, testing and editing scripted modules as well as restarting the application.
+
+modules/webserver.html
+
 
 ## Information for Advanced Users
 
@@ -83,9 +98,9 @@ Settings are stored in *.ini files. If the settings file is found in application
 
 If .ini file is not found in the the application home directory then it is searched in user profile:
 
--  Windows: `%USERPROFILE%\AppData\Roaming\NA-MIC\` (typically `C:\Users\<your_user_name>\AppData\Roaming\NA-MIC\`)
--  Linux: `~/.config/NA-MIC/`
--  Mac: `~/.config/www.na-mic.org/`
+-  Windows: `%USERPROFILE%\AppData\Roaming\slicer.org\` (typically `C:\Users\<your_user_name>\AppData\Roaming\slicer.org\`)
+-  Linux: `~/.config/slicer.org/`
+-  Mac: `~/.config/slicer.org/`
 
 Deleting the *.ini files restores all the settings to default.
 
@@ -103,7 +118,7 @@ On Windows:
 
     Slicer.exe --settings-path | more
 
-or enter the following in the Python interactor:
+or enter the following in the Python console:
 
     slicer.app.slicerUserSettingsFilePath
 
@@ -111,7 +126,7 @@ or enter the following in the Python interactor:
 
 This file is named like `Slicer-<REVISION>.ini` and it stores settings applying to a *specific revision* of Slicer installed by the *current user*.
 
-To display the exact location of this settings file, enter the following in the Python interactor:
+To display the exact location of this settings file, enter the following in the Python console:
 
     slicer.app.slicerRevisionUserSettingsFilePath
 
@@ -141,7 +156,7 @@ The following environment variables can be set before the application is started
 - `SLICERRC`: Custom application startup file path. Contains a full path to a Python script. By default it is `~/.slicerrc.py` (where ~ is the user profile a.k.a user home folder).
 - `SLICER_EXTENSIONS_MANAGER_SERVER_URL`: URL of the extensions manager backend with the `/api` path. Default value is retrieved from the settings using the key `Extensions/ServerUrl`.
 - `SLICER_EXTENSIONS_MANAGER_FRONTEND_SERVER_URL`: URL of the extension manager frontend displaying the web page. Default value is retrieved from the settings using the key `Extensions/FrontendServerUrl`.
-- `SLICER_EXTENSIONS_MANAGER_SERVER_API`: Supported values are `Midas_v1` and `Girder_v1`. Default value is hard-coded to `Girder_v1`.
+- `SLICER_EXTENSIONS_MANAGER_SERVER_API`: Supported value is `Girder_v1`. Default value is hard-coded to `Girder_v1`.
 
 ### Qt built-in command-line options
 

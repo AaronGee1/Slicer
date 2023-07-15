@@ -17,11 +17,11 @@ models.md
 sceneviews.md
 segmentations.md
 segmenteditor.md
+slicerwelcome.md
 transforms.md
 viewcontrollers.md
 volumerendering.md
 volumes.md
-welcome.md
 ```
 
 ## Informatics
@@ -40,7 +40,6 @@ dataprobe.md
 ## Registration
 ```{toctree}
 :maxdepth: 1
-acpctransform.md
 brainsfit.md
 brainsresample.md
 brainsresize.md
@@ -70,7 +69,7 @@ segmentstatistics.md
 ```{toctree}
 :maxdepth: 1
 sequences.md
-cropvolumesequences.md
+cropvolumesequence.md
 multivolumeimporter.md
 multivolumeexplorer.md
 ```
@@ -172,7 +171,6 @@ Deprecated modules are not recommended to be used anymore, typically because oth
 
 ```{toctree}
 :maxdepth: 1
-annotations.md
 resamplescalarvolume.md
 robuststatisticssegmenter.md
 simpleregiongrowingsegmentation.md

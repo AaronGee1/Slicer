@@ -24,6 +24,8 @@
 // MRMLLogic includes
 #include "vtkMRMLApplicationLogic.h"
 #include "vtkMRMLColorLogic.h"
+#include "vtkMRMLLogic.h"
+#include "vtkMRMLMessageCollection.h"
 #include "vtkMRMLSliceLogic.h"
 #include "vtkMRMLSliceLinkLogic.h"
 #include "vtkMRMLViewLogic.h"
@@ -50,6 +52,7 @@
 #include <vtkNew.h>
 #include <vtkObjectFactory.h>
 #include <vtkSmartPointer.h>
+#include <vtkTextProperty.h>
 
 // VTKSYS includes
 #include <vtksys/SystemTools.hxx>
@@ -67,6 +70,11 @@
 # include <dirent.h>
 # include <errno.h>
 #endif
+
+namespace
+{
+  const char FONTS_DIR[] = "Fonts";
+}
 
 //----------------------------------------------------------------------------
 vtkStandardNewMacro(vtkMRMLApplicationLogic);
@@ -89,6 +97,7 @@ public:
   vtkSmartPointer<vtkMRMLColorLogic> ColorLogic;
   std::string TemporaryPath;
   std::map<std::string, vtkWeakPointer<vtkMRMLAbstractLogic> > ModuleLogicMap;
+  std::map<int, std::string> FontFileNames;
 };
 
 //----------------------------------------------------------------------------
@@ -569,27 +578,41 @@ std::string vtkMRMLApplicationLogic::UnpackSlicerDataBundle(const char *sdbFileP
 }
 
 //----------------------------------------------------------------------------
-bool vtkMRMLApplicationLogic::OpenSlicerDataBundle(const char* sdbFilePath, const char* temporaryDirectory)
+bool vtkMRMLApplicationLogic::OpenSlicerDataBundle(const char* sdbFilePath, const char* temporaryDirectory, vtkMRMLMessageCollection* userMessages/*=nullptr*/)
 {
   if (!this->GetMRMLScene())
     {
-    vtkErrorMacro("no scene");
+    vtkErrorMacro("Scene file has not been set in the application logic");
+    return false;
+    }
+  if (!sdbFilePath)
+    {
+    vtkErrorMacro("Data bundle file path is invalid");
+    return false;
+    }
+  if (!temporaryDirectory)
+    {
+    vtkErrorMacro("Temporary file path is invalid");
     return false;
     }
 
   std::string mrmlFile = this->UnpackSlicerDataBundle(sdbFilePath, temporaryDirectory);
-
   if ( mrmlFile.empty() )
     {
+    if (userMessages)
+      {
+      userMessages->AddMessage(vtkCommand::ErrorEvent, "Could not unpack file '" + std::string(sdbFilePath)
+       + "' into '" + std::string(temporaryDirectory) + "'");
+      }
     vtkErrorMacro("Could not unpack mrml scene");
     return false;
     }
 
   this->GetMRMLScene()->SetURL( mrmlFile.c_str() );
-  int success = this->GetMRMLScene()->Connect();
+  int success = this->GetMRMLScene()->Connect(userMessages);
   if ( !success )
     {
-    vtkErrorMacro("Could not connect to scene");
+    vtkErrorMacro("Failed to read the scene");
     return false;
     }
   return true;
@@ -602,7 +625,8 @@ std::string vtkMRMLApplicationLogic::PercentEncode(std::string s)
 }
 
 //----------------------------------------------------------------------------
-bool vtkMRMLApplicationLogic::SaveSceneToSlicerDataBundleDirectory(const char* sdbDir, vtkImageData* screenShot)
+bool vtkMRMLApplicationLogic::SaveSceneToSlicerDataBundleDirectory(const char* sdbDir, vtkImageData* screenShot,
+  vtkMRMLMessageCollection* userMessages/*=nullptr*/)
 {
   // Overview:
   // - confirm the arguments are valid and create directories if needed
@@ -620,7 +644,7 @@ bool vtkMRMLApplicationLogic::SaveSceneToSlicerDataBundleDirectory(const char* s
     vtkErrorMacro("SaveSceneToSlicerDataBundleDirectory failed: invalid scene");
     return false;
     }
-  return this->GetMRMLScene()->SaveSceneToSlicerDataBundleDirectory(sdbDir, screenShot);
+  return this->GetMRMLScene()->SaveSceneToSlicerDataBundleDirectory(sdbDir, screenShot, userMessages);
 }
 
 //----------------------------------------------------------------------------
@@ -740,7 +764,7 @@ int vtkMRMLApplicationLogic::LoadDefaultParameterSets(vtkMRMLScene* scene,
   std::vector<std::string>::iterator fit;
   for (fit = filesToLoad.begin(); fit != filesToLoad.end(); ++fit)
     {
-    scene->SetURL( (*fit).c_str() );
+    scene->SetURL( fit->c_str() );
     scene->Import();
     }
 
@@ -1164,4 +1188,69 @@ int vtkMRMLApplicationLogic::GetIntersectingSlicesLineThicknessMode()
     }
 
   return sliceDisplayNode->GetIntersectingSlicesLineThicknessMode();
+}
+
+//----------------------------------------------------------------------------
+std::string vtkMRMLApplicationLogic::GetFontFileName(int fontFamily)
+{
+  std::map<int, std::string>::iterator foundFontFileIt = this->Internal->FontFileNames.find(fontFamily);
+  if (foundFontFileIt == this->Internal->FontFileNames.end())
+    {
+    return "";
+    }
+  return foundFontFileIt->second;
+}
+
+//----------------------------------------------------------------------------
+void vtkMRMLApplicationLogic::SetFontFileName(int fontFamily, const std::string& fontFileName)
+{
+  const std::string fullPath = this->GetFontFilePath(fontFileName);
+  // File existence is checked in this method so that we don't need to
+  this->Internal->FontFileNames[fontFamily] = fontFileName;
+}
+
+//----------------------------------------------------------------------------
+void vtkMRMLApplicationLogic::UseCustomFontFile(vtkTextProperty* textProperty)
+{
+  if (!textProperty)
+    {
+    return;
+    }
+  std::string fontFileName = vtkMRMLApplicationLogic::GetFontFileName(textProperty->GetFontFamily());
+  if (fontFileName.empty())
+    {
+    return;
+    }
+  std::string fullPath = this->GetFontFilePath(fontFileName);
+  if (!vtksys::SystemTools::FileExists(fullPath, true))
+    {
+    return;
+    }
+  textProperty->SetFontFile(fullPath.c_str());
+  textProperty->SetFontFamily(VTK_FONT_FILE);
+}
+
+//----------------------------------------------------------------------------
+std::string vtkMRMLApplicationLogic::GetFontFilePath(const std::string& fontFileName)
+{
+  std::vector<std::string> filesVector;
+  // Add an empty component because JoinPath does not add a slash for the first two components.
+  filesVector.emplace_back("");
+  filesVector.push_back(vtkMRMLLogic::GetApplicationShareDirectory());
+  filesVector.emplace_back(FONTS_DIR);
+  filesVector.emplace_back(fontFileName);
+  std::string fullPath = vtksys::SystemTools::JoinPath(filesVector);
+  return fullPath;
+}
+
+//----------------------------------------------------------------------------
+std::string vtkMRMLApplicationLogic::GetFontsDirectory()
+{
+  std::vector<std::string> filesVector;
+  // Add an empty component because JoinPath does not add a slash for the first two components.
+  filesVector.emplace_back("");
+  filesVector.push_back(vtkMRMLLogic::GetApplicationShareDirectory());
+  filesVector.emplace_back(FONTS_DIR);
+  std::string fullPath = vtksys::SystemTools::JoinPath(filesVector);
+  return fullPath;
 }

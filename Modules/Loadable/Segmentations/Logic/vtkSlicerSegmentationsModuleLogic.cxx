@@ -300,7 +300,7 @@ vtkMRMLSegmentationNode* vtkSlicerSegmentationsModuleLogic::LoadSegmentationFrom
     }
 
   // Show closed surface poly data if it exist. By default the preferred representation is shown,
-  // but we do not have a display node for the segmentation here. In its absence the master representation
+  // but we do not have a display node for the segmentation here. In its absence the source representation
   // is shown if it's poly data, but closed surface model is specifically for 3D visualization)
   if (segmentationNode->GetSegmentation()->ContainsRepresentation(
     vtkSegmentationConverter::GetSegmentationClosedSurfaceRepresentationName()) )
@@ -1073,9 +1073,19 @@ bool vtkSlicerSegmentationsModuleLogic::ExportSegmentsToLabelmapNode(vtkMRMLSegm
     }
   labelmapNode->SetAndObserveTransformNodeID(parentTransformNode ? parentTransformNode->GetID() : "");
 
+  std::vector<std::string> exportedSegmentIDs;
+  if (segmentIDs.empty())
+    {
+    segmentationNode->GetSegmentation()->GetSegmentIDs(exportedSegmentIDs);
+    }
+  else
+    {
+    exportedSegmentIDs = segmentIDs;
+    }
+
   vtkNew<vtkOrientedImageData> mergedLabelmap_Reference;
   vtkNew<vtkStringArray> segmentIDsArray;
-  for (std::string segmentID : segmentIDs)
+  for (std::string segmentID : exportedSegmentIDs)
     {
     segmentIDsArray->InsertNextValue(segmentID);
     }
@@ -1137,15 +1147,6 @@ bool vtkSlicerSegmentationsModuleLogic::ExportSegmentsToLabelmapNode(vtkMRMLSegm
     labelmapNode->GetDisplayNode()->GetColorNode() ); // Always valid, as it was created just above if was missing
   vtkMRMLSegmentationDisplayNode* displayNode = vtkMRMLSegmentationDisplayNode::SafeDownCast(
     segmentationNode->GetDisplayNode() );
-  std::vector<std::string> exportedSegmentIDs;
-  if (segmentIDs.empty())
-    {
-    segmentationNode->GetSegmentation()->GetSegmentIDs(exportedSegmentIDs);
-    }
-  else
-    {
-    exportedSegmentIDs = segmentIDs;
-    }
 
   int numberOfColors = exportedSegmentIDs.size() + 1;
   if (labelValues)
@@ -1424,9 +1425,12 @@ bool vtkSlicerSegmentationsModuleLogic::ImportLabelmapToSegmentationNode(vtkMRML
       {
       std::stringstream ss;
       ss << "Label_" << label;
-      labelName = ss.str().c_str();
+      segment->SetName(ss.str().c_str());
       }
-    segment->SetName(labelName);
+    else
+      {
+      segment->SetName(labelName);
+      }
 
     // Clip to effective extent
     int labelOrientedImageDataEffectiveExtent[6] = { 0, -1, 0, -1, 0, -1 };
@@ -1583,12 +1587,12 @@ bool vtkSlicerSegmentationsModuleLogic::ImportLabelmapToSegmentationNode(
     return false;
     }
 
-  // If master representation is not binary labelmap, then cannot add
-  // (this should have been done by the UI classes, notifying the users about hazards of changing the master representation)
-  if (segmentationNode->GetSegmentation()->GetMasterRepresentationName() != vtkSegmentationConverter::GetSegmentationBinaryLabelmapRepresentationName())
+  // If source representation is not binary labelmap, then cannot add
+  // (this should have been done by the UI classes, notifying the users about hazards of changing the source representation)
+  if (segmentationNode->GetSegmentation()->GetSourceRepresentationName() != vtkSegmentationConverter::GetSegmentationBinaryLabelmapRepresentationName())
     {
     vtkErrorWithObjectMacro(segmentationNode, "vtkSlicerSegmentationsModuleLogic::ImportLabelmapToSegmentationNode:"
-      "Master representation of the target segmentation node "
+      "Source representation of the target segmentation node "
       << (segmentationNode->GetName() ? segmentationNode->GetName() : "NULL") << " is not binary labelmap");
     return false;
     }
@@ -1624,7 +1628,15 @@ bool vtkSlicerSegmentationsModuleLogic::ImportLabelmapToSegmentationNode(
     vtkSegment* segment = segmentationNode->GetSegmentation()->GetSegment(segmentId);
     if (!segment)
       {
-      continue;
+      vtkNew<vtkSegment> newSegment;
+      newSegment->SetName(segmentId.c_str());
+      segment = newSegment;
+      if (!segmentationNode->GetSegmentation()->AddSegment(newSegment, segmentId))
+        {
+        vtkErrorWithObjectMacro(segmentationNode, "vtkSlicerSegmentationsModuleLogic::ImportLabelmapToSegmentationNode: "
+          "Could not add segment");
+        return false;
+        }
       }
 
     // Clear current content of the segment (before setting new label)
@@ -1669,7 +1681,7 @@ vtkDataObject* vtkSlicerSegmentationsModuleLogic::CreateRepresentationForOneSegm
 
   // Temporarily duplicate selected segment to only convert them, not the whole segmentation (to save time)
   vtkSmartPointer<vtkSegmentation> segmentationCopy = vtkSmartPointer<vtkSegmentation>::New();
-  segmentationCopy->SetMasterRepresentationName(segmentation->GetMasterRepresentationName());
+  segmentationCopy->SetSourceRepresentationName(segmentation->GetSourceRepresentationName());
   segmentationCopy->CopyConversionParameters(segmentation);
   segmentationCopy->CopySegmentFromSegmentation(segmentation, segmentID);
   if (!segmentationCopy->CreateRepresentation(representationName, true))
@@ -1909,12 +1921,12 @@ bool vtkSlicerSegmentationsModuleLogic::SetBinaryLabelmapToSegment(
       std::string targetRepresentationName = (*reprIt);
       if (targetRepresentationName.compare(vtkSegmentationConverter::GetSegmentationBinaryLabelmapRepresentationName()))
         {
-        vtkSegmentationConverter::ConversionPathAndCostListType pathCosts;
-        segmentation->GetPossibleConversions(targetRepresentationName, pathCosts);
+        vtkNew<vtkSegmentationConversionPaths> paths;
+        segmentation->GetPossibleConversions(targetRepresentationName, paths);
 
         // Get cheapest path from found conversion paths
-        vtkSegmentationConverter::ConversionPathType cheapestPath = vtkSegmentationConverter::GetCheapestPath(pathCosts);
-        if (cheapestPath.empty())
+        vtkSegmentationConversionPath* cheapestPath = vtkSegmentationConverter::GetCheapestPath(paths);
+        if (!cheapestPath)
           {
           continue;
           }
@@ -2259,7 +2271,6 @@ bool vtkSlicerSegmentationsModuleLogic::ExportSegmentsClosedSurfaceRepresentatio
   std::string fullNameWithoutExtension = destinationFolder + "/" + safeFileName;
   exporter->SetFilePrefix(fullNameWithoutExtension.c_str());
 
-#if VTK_MAJOR_VERSION >= 9 || (VTK_MAJOR_VERSION >= 8 && VTK_MINOR_VERSION >= 2)
   // We explicitly write the coordinate system into the file header.
   // See vtkMRMLModelStorageNode::WriteDataInternal.
   const std::string coordinateSystemValue = (lps ? "LPS" : "RAS");
@@ -2272,7 +2283,6 @@ bool vtkSlicerSegmentationsModuleLogic::ExportSegmentsClosedSurfaceRepresentatio
     header += ";SCALE=" + strs.str();
     }
   exporter->SetOBJFileComment(header.c_str());
-#endif
 
   try
     {
@@ -2584,9 +2594,9 @@ bool vtkSlicerSegmentationsModuleLogic::ClearSegment(vtkMRMLSegmentationNode* se
   std::vector<std::string> representationNames;
   segmentation->GetContainedRepresentationNames(representationNames);
 
-  bool wasMasterRepresentationModifiedEnabled = segmentationNode->GetSegmentation()->SetMasterRepresentationModifiedEnabled(false);
+  bool wasSourceRepresentationModifiedEnabled = segmentationNode->GetSegmentation()->SetSourceRepresentationModifiedEnabled(false);
   segmentation->ClearSegment(segmentId);
-  segmentationNode->GetSegmentation()->SetMasterRepresentationModifiedEnabled(wasMasterRepresentationModifiedEnabled);
+  segmentationNode->GetSegmentation()->SetSourceRepresentationModifiedEnabled(wasSourceRepresentationModifiedEnabled);
 
   std::vector<std::string> segmentIDVector;
   segmentIDVector.push_back(segmentId);
@@ -2646,14 +2656,14 @@ bool vtkSlicerSegmentationsModuleLogic::ReconvertAllRepresentations(vtkMRMLSegme
     reprIt != representationNames.end(); ++reprIt)
     {
     std::string targetRepresentationName = (*reprIt);
-    if (targetRepresentationName.compare(segmentation->MasterRepresentationName))
+    if (targetRepresentationName.compare(segmentation->SourceRepresentationName))
       {
-      vtkSegmentationConverter::ConversionPathAndCostListType pathCosts;
-      segmentation->GetPossibleConversions(targetRepresentationName, pathCosts);
+      vtkNew<vtkSegmentationConversionPaths> paths;
+      segmentation->GetPossibleConversions(targetRepresentationName, paths);
 
       // Get cheapest path from found conversion paths
-      vtkSegmentationConverter::ConversionPathType cheapestPath = vtkSegmentationConverter::GetCheapestPath(pathCosts);
-      if (!cheapestPath.empty())
+      vtkSegmentationConversionPath* cheapestPath = vtkSegmentationConverter::GetCheapestPath(paths);
+      if (cheapestPath)
         {
         conversionHappened |= segmentationNode->GetSegmentation()->ConvertSegmentsUsingPath(segmentIDsToConvert, cheapestPath, true);
         }
@@ -2672,9 +2682,9 @@ void vtkSlicerSegmentationsModuleLogic::CollapseBinaryLabelmaps(vtkMRMLSegmentat
     }
 
   MRMLNodeModifyBlocker blocker(segmentationNode);
-  bool wasMasterRepresentationModifiedEnabled = segmentationNode->GetSegmentation()->SetMasterRepresentationModifiedEnabled(false);
+  bool wasSourceRepresentationModifiedEnabled = segmentationNode->GetSegmentation()->SetSourceRepresentationModifiedEnabled(false);
   segmentationNode->GetSegmentation()->CollapseBinaryLabelmaps(forceToSingleLayer);
-  segmentationNode->GetSegmentation()->SetMasterRepresentationModifiedEnabled(wasMasterRepresentationModifiedEnabled);
+  segmentationNode->GetSegmentation()->SetSourceRepresentationModifiedEnabled(wasSourceRepresentationModifiedEnabled);
   vtkSlicerSegmentationsModuleLogic::ReconvertAllRepresentations(segmentationNode);
 }
 

@@ -64,7 +64,7 @@ public:
   QString tempDirectory() const;
 
   /// Set module entry point. Typically "slicer:0x012345" for loadable CLI
-  /// or "/home/user/work/Slicer-Superbuild/../mycliexec" for executable CLI
+  /// or "/home/user/work/Slicer-SuperBuild/../my-cli-exec" for executable CLI
   void setEntryPoint(const QString& entryPoint);
   QString entryPoint() const;
 
@@ -93,12 +93,15 @@ public:
   void setLogo(const ModuleLogo& logo);
 
   /// Convert a ModuleLogo into a QIcon
-  /// \todo: Find a better place for this util function
+  /// \todo: Find a better place for this helper function
   static QImage moduleLogoToImage(const ModuleLogo& logo);
 
   /// Return the module description object used to store
   /// the module properties.
   ModuleDescription& moduleDescription();
+
+  /// Translate string from source language to current application language
+  QString translate(const std::string& sourceText)const;
 
 protected:
   ///

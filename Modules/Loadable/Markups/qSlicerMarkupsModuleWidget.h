@@ -71,13 +71,17 @@ public:
   /// volume spacing and multiply it by the volume spacing scale factor
   /// \sa volumeSpacingScaleFactor
   void updateMaximumScaleFromVolumes();
-  /// Refresh a row of the gui from the mth markup in the currently active
-  /// markup node as defined by the selection node combo box
+  /// Refresh a row of the control points table from the m-th markup.
   void updateRow(int m);
+  /// Refresh all the rows of the control points table from the markup node.
+  void updateRows();
 
   /// Add observations to the markups node, and remove them from other markups
   /// nodes (from all nodes if markupsNode is null)
   void setMRMLMarkupsNode(vtkMRMLMarkupsNode* markupsNode);
+
+  /// Get currently selected markups node
+  vtkMRMLMarkupsNode* mrmlMarkupsNode();
 
   /// Set up the logic default display settings from the application settings
   void updateLogicFromSettings();
@@ -120,14 +124,6 @@ public slots:
   void onMRMLSceneEndCloseEvent();
   /// Respond to the p key being pressed
   void onPKeyActivated();
-
-  /// Called from enter and on import/add mrml events to ask if the user
-  /// wishes to convert annotation fiducial hierarchies into markups list nodes.
-  /// \sa enter(), onMRMLSceneEndImportEvent(), onMRMLSceneEndBatchProcessEvent()
-  void checkForAnnotationFiducialConversion();
-  /// Uses the Logic to do the conversion from annotation fiducials, moving
-  /// them from hierarchies to Markups list nodes
-  void convertAnnotationFiducialsToMarkups();
 
   /// Display property button slots
   void onResetToDefaultDisplayPropertiesPushButtonClicked();

@@ -137,7 +137,7 @@ public:
   /// Get associated display MRML node. Can be 0 in temporary states; e.g. if
   /// the displayable node has no scene, or if the associated display is not
   /// yet into the scene.
-  /// If not cached, it tnternally scans (slow) the scene to search for the
+  /// If not cached, it internally scans (slow) the scene to search for the
   /// associated display node ID.
   /// If the displayable node is no longer in the scene (GetScene() == 0), it
   /// happens after the node is removed from the scene (scene->RemoveNode(dn),
@@ -186,7 +186,6 @@ public:
   /// CreateDefaultDisplayNodes method.
   virtual void CreateDefaultSequenceDisplayNodes();
 
-  /// TODO: Remove these functions when removing the Annotations module
   /// Utility to return the visibility of all the display nodes.
   /// Return 0 if they are all hidden, 1 if all are visible and 2 if some are
   /// visible and some are hidden.

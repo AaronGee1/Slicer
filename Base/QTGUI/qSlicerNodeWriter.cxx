@@ -35,6 +35,7 @@
 #include <vtkMRMLStorableNode.h>
 #include <vtkMRMLStorageNode.h>
 #include <vtkMRMLSceneViewNode.h>
+#include <vtkMRMLMessageCollection.h>
 
 // VTK includes
 #include <vtkStdString.h>
@@ -129,7 +130,7 @@ bool qSlicerNodeWriter::write(const qSlicerIO::IOProperties& properties)
 
   vtkMRMLStorableNode* node = vtkMRMLStorableNode::SafeDownCast(
     this->getNodeByID(properties["nodeID"].toString().toUtf8().data()));
-  if (!this->canWriteObject(node))
+  if (this->canWriteObjectConfidence(node) <= 0.0)
     {
     return false;
     }
@@ -144,12 +145,11 @@ bool qSlicerNodeWriter::write(const qSlicerIO::IOProperties& properties)
   QString fileName = properties["fileName"].toString();
   snode->SetFileName(fileName.toUtf8());
 
-  qSlicerCoreIOManager* coreIOManager =
-    qSlicerCoreApplication::application()->coreIOManager();
-
-  QString fileFormat =
-    properties.value("fileFormat", coreIOManager->completeSlicerWritableFileNameSuffix(node)).toString();
-  snode->SetWriteFileFormat(fileFormat.toUtf8());
+  QString fileFormat = properties.value("fileFormat").toString();
+  if (!fileFormat.isEmpty())
+    {
+    snode->SetWriteFileFormat(fileFormat.toUtf8());
+    }
   snode->SetURI(nullptr);
   if (properties.contains("useCompression"))
     {
@@ -165,6 +165,8 @@ bool qSlicerNodeWriter::write(const qSlicerIO::IOProperties& properties)
     {
     this->setWrittenNodes(QStringList() << node->GetID());
     }
+
+  this->userMessages()->AddMessages(snode->GetUserMessages());
 
   return res;
 }
@@ -185,7 +187,7 @@ vtkMRMLNode* qSlicerNodeWriter::getNodeByID(const char *id)const
       {
       vtkMRMLSceneViewNode *svNode = vtkMRMLSceneViewNode::SafeDownCast(*it);
       // skip "Master Scene View" since it contains the same nodes as the scene
-      if (svNode->GetName() && std::string("Master Scene View") == std::string(svNode->GetName()))
+      if (svNode->GetName() && std::string(/*no tr*/"Master Scene View") == std::string(svNode->GetName()))
         {
         continue;
         }

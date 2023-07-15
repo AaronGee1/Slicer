@@ -20,7 +20,6 @@
 
 // Slicer includes
 #include "vtkSlicerConfigure.h" // For Slicer_* macros
-#include "vtkSlicerVersionConfigure.h" // For Slicer_* version macros
 
 // Slicer includes
 #include <qSlicerApplication.h>
@@ -122,7 +121,7 @@ int qSlicerApplicationHelper::postInitializeApplication(
       pixmap.setDevicePixelRatio(guiApp->devicePixelRatio());
       }
 
-    splashScreen.reset(new QSplashScreen(pixmap));
+    splashScreen.reset(new QSplashScreen(pixmap, Qt::WindowStaysOnTopHint));
     splashMessage(splashScreen, "Initializing...");
     splashScreen->show();
     }
@@ -179,7 +178,7 @@ int qSlicerApplicationHelper::postInitializeApplication(
     }
 
   // Exit if testing module is enabled and not all modules are instantiated
-  if (!failedToBeInstantiatedModuleNames.isEmpty() && app.commandOptions()->isTestingEnabled())
+  if (!failedToBeInstantiatedModuleNames.isEmpty() && app.testAttribute(qSlicerCoreApplication::AA_EnableTesting))
     {
     return EXIT_FAILURE;
     }
@@ -190,13 +189,13 @@ int qSlicerApplicationHelper::postInitializeApplication(
     {
     window.reset(new SlicerMainWindowType);
     }
-  else if (app.commandOptions()->showPythonInteractor()
+  else if (app.commandOptions()->showPythonConsole()
     && !app.commandOptions()->runPythonAndExit())
     {
-    // there is no main window but we need to show Python interactor
+    // there is no main window but we need to show Python console
 #ifdef Slicer_USE_PYTHONQT
     ctkPythonConsole* pythonConsole = app.pythonConsole();
-    pythonConsole->setWindowTitle("Slicer Python Interactor");
+    pythonConsole->setWindowTitle("Slicer Python Console");
     pythonConsole->resize(600, 280);
     pythonConsole->show();
     pythonConsole->activateWindow();

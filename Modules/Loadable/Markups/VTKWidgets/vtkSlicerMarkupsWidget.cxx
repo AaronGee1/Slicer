@@ -139,10 +139,9 @@ bool vtkSlicerMarkupsWidget::ProcessControlPointMoveStart(vtkMRMLInteractionEven
     {
     return false;
     }
-  if (markupsNode->GetNthControlPointLocked(activeControlPoint))
-    {
-    return false;
-    }
+  // Do not reject this event if control point is locked
+  // because then we would not receive the mouse release event
+  // and so we could not process mouse clicks.
   this->SetWidgetState(WidgetStateTranslateControlPoint);
   this->StartWidgetInteraction(eventData);
   return true;
@@ -158,8 +157,7 @@ bool vtkSlicerMarkupsWidget::ProcessControlPointInsert(vtkMRMLInteractionEventDa
 //----------------------------------------------------------------------
 bool vtkSlicerMarkupsWidget::ProcessWidgetRotateStart(vtkMRMLInteractionEventData* eventData)
 {
-  if ((this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnWidget && this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnRotationHandle)
-    || this->IsAnyControlPointLocked())
+  if ((this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnWidget && this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnRotationHandle))
     {
     return false;
     }
@@ -172,8 +170,7 @@ bool vtkSlicerMarkupsWidget::ProcessWidgetRotateStart(vtkMRMLInteractionEventDat
 //-------------------------------------------------------------------------
 bool vtkSlicerMarkupsWidget::ProcessWidgetScaleStart(vtkMRMLInteractionEventData* eventData)
 {
-  if ((this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnWidget && this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnScaleHandle)
-    || this->IsAnyControlPointLocked())
+  if ((this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnWidget && this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnScaleHandle))
     {
     return false;
     }
@@ -186,8 +183,7 @@ bool vtkSlicerMarkupsWidget::ProcessWidgetScaleStart(vtkMRMLInteractionEventData
 //-------------------------------------------------------------------------
 bool vtkSlicerMarkupsWidget::ProcessWidgetTranslateStart(vtkMRMLInteractionEventData* eventData)
 {
-  if ((this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnWidget && this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnTranslationHandle)
-    || this->IsAnyControlPointLocked())
+  if ((this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnWidget && this->WidgetState != vtkSlicerMarkupsWidget::WidgetStateOnTranslationHandle))
     {
     return false;
     }
@@ -671,7 +667,8 @@ bool vtkSlicerMarkupsWidget::CanProcessInteractionEvent(vtkMRMLInteractionEventD
   unsigned long widgetEvent = this->TranslateInteractionEventToWidgetEvent(eventData);
   if (widgetEvent == WidgetEventNone)
     {
-    return false;
+    // If this event is not recognized then give a chance to process it as a click event.
+    return this->CanProcessButtonClickEvent(eventData, distance2);
     }
   vtkSlicerMarkupsWidgetRepresentation* rep = this->GetMarkupsRepresentation();
   if (!rep)
@@ -1046,6 +1043,12 @@ void vtkSlicerMarkupsWidget::TranslatePoint(double eventPos[2], bool snapToSlice
     return;
     }
 
+  if (markupsNode->GetNthControlPointLocked(activeControlPointIndex))
+    {
+    // point is locked, do not translate
+    return;
+    }
+
   eventPos[0] -= this->StartEventOffsetPosition[0];
   eventPos[1] -= this->StartEventOffsetPosition[1];
 
@@ -1117,27 +1120,13 @@ void vtkSlicerMarkupsWidget::TranslateWidget(double eventPos[2])
   else if (rep3d)
     {
     // 3D view
-    double eventPos_Display[2] = { 0. };
-
-    eventPos_Display[0] = this->LastEventPosition[0];
-    eventPos_Display[1] = this->LastEventPosition[1];
-
     if (!rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, lastEventPos_World, eventPos_World,
-      orientation_World))
+      this->LastEventPosition, lastEventPos_World, orientation_World))
       {
       return;
       }
-    lastEventPos_World[0] = eventPos_World[0];
-    lastEventPos_World[1] = eventPos_World[1];
-    lastEventPos_World[2] = eventPos_World[2];
-
-    eventPos_Display[0] = eventPos[0];
-    eventPos_Display[1] = eventPos[1];
-
     if (!rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, lastEventPos_World, eventPos_World,
-      orientation_World))
+      eventPos, lastEventPos_World, eventPos_World, orientation_World))
       {
       return;
       }
@@ -1187,12 +1176,19 @@ void vtkSlicerMarkupsWidget::TranslateWidget(double eventPos[2])
     {
     double currentControlPointPosition_World[3] = { 0.0 };
     markupsNode->GetNthControlPointPositionWorld(i, currentControlPointPosition_World);
-
-    double newControlPointPosition_World[3] = { 0.0 };
-    translationTransform->TransformPoint(currentControlPointPosition_World, newControlPointPosition_World);
-    transformedPoints_World->SetPoint(i, newControlPointPosition_World);
+    if (markupsNode->GetNthControlPointLocked(i))
+      {
+      transformedPoints_World->SetPoint(i, currentControlPointPosition_World);
+      }
+    else
+      {
+      double newControlPointPosition_World[3] = { 0.0 };
+      translationTransform->TransformPoint(currentControlPointPosition_World, newControlPointPosition_World);
+      transformedPoints_World->SetPoint(i, newControlPointPosition_World);
+      }
     }
-  markupsNode->SetControlPointPositionsWorld(transformedPoints_World);
+  bool setUndefinedPoints = false;
+  markupsNode->SetControlPointPositionsWorld(transformedPoints_World, setUndefinedPoints);
 
   if (transformedPoints_World->GetNumberOfPoints() == 0)
     {
@@ -1274,13 +1270,21 @@ void vtkSlicerMarkupsWidget::ScaleWidget(double eventPos[2])
   for (int i = 0; i < markupsNode->GetNumberOfControlPoints(); i++)
     {
     markupsNode->GetNthControlPointPositionWorld(i, ref);
-    for (int j = 0; j < 3; j++)
+    if (markupsNode->GetNthControlPointLocked(i))
       {
-      worldPos[j] = center[j] + ratio * (ref[j] - center[j]);
+      transformedPoints_World->SetPoint(i, ref);
       }
-    transformedPoints_World->SetPoint(i, worldPos);
+    else
+      {
+      for (int j = 0; j < 3; j++)
+        {
+        worldPos[j] = center[j] + ratio * (ref[j] - center[j]);
+        }
+      transformedPoints_World->SetPoint(i, worldPos);
+      }
     }
-  markupsNode->SetControlPointPositionsWorld(transformedPoints_World);
+  bool setUndefinedPoints = false;
+  markupsNode->SetControlPointPositionsWorld(transformedPoints_World, setUndefinedPoints);
 }
 
 //----------------------------------------------------------------------
@@ -1316,12 +1320,8 @@ void vtkSlicerMarkupsWidget::RotateWidget(double eventPos[2])
     }
   else if (rep3d)
     {
-    eventPos_Display[0] = this->LastEventPosition[0];
-    eventPos_Display[1] = this->LastEventPosition[1];
-
     if (rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, eventPos_World, lastEventPos_World,
-      orientation_World))
+      this->LastEventPosition, lastEventPos_World, orientation_World))
       {
       for (int i = 0; i < 3; i++)
         {
@@ -1334,10 +1334,8 @@ void vtkSlicerMarkupsWidget::RotateWidget(double eventPos[2])
       }
     eventPos_Display[0] = eventPos[0];
     eventPos_Display[1] = eventPos[1];
-
     if (!rep3d->GetPointPlacer()->ComputeWorldPosition(this->Renderer,
-      eventPos_Display, eventPos_World, eventPos_World,
-      orientation_World))
+      eventPos_Display, eventPos_World, eventPos_World, orientation_World))
       {
       return;
       }
@@ -1431,12 +1429,19 @@ void vtkSlicerMarkupsWidget::RotateWidget(double eventPos[2])
     {
     double currentControlPointPosition_World[3] = { 0.0 };
     markupsNode->GetNthControlPointPositionWorld(i, currentControlPointPosition_World);
-
-    double newControlPointPosition_World[3] = { 0.0 };
-    rotateTransform->TransformPoint(currentControlPointPosition_World, newControlPointPosition_World);
-    transformedPoints_World->SetPoint(i, newControlPointPosition_World);
+    if (markupsNode->GetNthControlPointLocked(i))
+      {
+      transformedPoints_World->SetPoint(i, currentControlPointPosition_World);
+      }
+    else
+      {
+      double newControlPointPosition_World[3] = { 0.0 };
+      rotateTransform->TransformPoint(currentControlPointPosition_World, newControlPointPosition_World);
+      transformedPoints_World->SetPoint(i, newControlPointPosition_World);
+      }
     }
-  markupsNode->SetControlPointPositionsWorld(transformedPoints_World);
+  bool setUndefinedPoints = false;
+  markupsNode->SetControlPointPositionsWorld(transformedPoints_World, setUndefinedPoints);
 }
 
 //----------------------------------------------------------------------
@@ -1872,8 +1877,8 @@ int vtkSlicerMarkupsWidget::GetActiveComponentIndex()
 
 //-----------------------------------------------------------------------------
 vtkMRMLSelectionNode* vtkSlicerMarkupsWidget::selectionNode()
-  {
+{
   return vtkMRMLSelectionNode::SafeDownCast(
     this->GetMarkupsNode()->GetScene()->GetNodeByID("vtkMRMLSelectionNodeSingleton"));
 
-  }
+}

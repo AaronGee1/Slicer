@@ -61,6 +61,7 @@ public:
     ProcessViewNodeEventsMethod,
     SetMRMLDefaultsMethod,
     ReferenceGeometryChangedMethod,
+    SourceVolumeNodeChangedMethod,
     MasterVolumeNodeChangedMethod,
     LayoutChangedMethod,
     InteractionNodeModifiedMethod,
@@ -90,6 +91,7 @@ qSlicerSegmentEditorScriptedLabelEffectPrivate::qSlicerSegmentEditorScriptedLabe
   this->PythonCppAPI.declareMethod(Self::ProcessViewNodeEventsMethod, "processViewNodeEvents");
   this->PythonCppAPI.declareMethod(Self::SetMRMLDefaultsMethod, "setMRMLDefaults");
   this->PythonCppAPI.declareMethod(Self::ReferenceGeometryChangedMethod, "referenceGeometryChanged");
+  this->PythonCppAPI.declareMethod(Self::SourceVolumeNodeChangedMethod, "sourceVolumeNodeChanged");
   this->PythonCppAPI.declareMethod(Self::MasterVolumeNodeChangedMethod, "masterVolumeNodeChanged");
   this->PythonCppAPI.declareMethod(Self::LayoutChangedMethod, "layoutChanged");
   this->PythonCppAPI.declareMethod(Self::InteractionNodeModifiedMethod, "interactionNodeModified");
@@ -255,14 +257,14 @@ const QString qSlicerSegmentEditorScriptedLabelEffect::helpText()const
     }
 
   // Parse result
-  if (!PyString_Check(result))
+  if (!PyUnicode_Check(result))
     {
     qWarning() << d->PythonSource << ": qSlicerSegmentEditorScriptedLabelEffect: Function 'helpText' is expected to return a string!";
     return this->Superclass::helpText();
     }
 
-  const char* role = PyString_AsString(result);
-  return QString::fromLocal8Bit(role);
+  const char* role = PyUnicode_AsUTF8(result);
+  return QString::fromUtf8(role);
 }
 
 //-----------------------------------------------------------------------------
@@ -343,7 +345,7 @@ bool qSlicerSegmentEditorScriptedLabelEffect::processInteractionEvents(vtkRender
   Q_D(const qSlicerSegmentEditorScriptedLabelEffect);
   PyObject* arguments = PyTuple_New(3);
   PyTuple_SET_ITEM(arguments, 0, vtkPythonUtil::GetObjectFromPointer((vtkObject*)callerInteractor));
-  PyTuple_SET_ITEM(arguments, 1, PyInt_FromLong(eid));
+  PyTuple_SET_ITEM(arguments, 1, PyLong_FromLong(eid));
   PyTuple_SET_ITEM(arguments, 2, PythonQtConv::QVariantToPyObject(QVariant::fromValue<QObject*>((QObject*)viewWidget)));
   PyObject* result = d->PythonCppAPI.callMethod(d->ProcessInteractionEventsMethod, arguments);
   Py_DECREF(arguments);
@@ -368,7 +370,7 @@ void qSlicerSegmentEditorScriptedLabelEffect::processViewNodeEvents(vtkMRMLAbstr
   Q_D(const qSlicerSegmentEditorScriptedLabelEffect);
   PyObject* arguments = PyTuple_New(3);
   PyTuple_SET_ITEM(arguments, 0, vtkPythonUtil::GetObjectFromPointer((vtkObject*)callerViewNode));
-  PyTuple_SET_ITEM(arguments, 1, PyInt_FromLong(eid));
+  PyTuple_SET_ITEM(arguments, 1, PyLong_FromLong(eid));
   PyTuple_SET_ITEM(arguments, 2, PythonQtConv::QVariantToPyObject(QVariant::fromValue<QObject*>((QObject*)viewWidget)));
   PyObject* result = d->PythonCppAPI.callMethod(d->ProcessViewNodeEventsMethod, arguments);
   Py_DECREF(arguments);
@@ -400,8 +402,19 @@ void qSlicerSegmentEditorScriptedLabelEffect::referenceGeometryChanged()
 }
 
 //-----------------------------------------------------------------------------
+void qSlicerSegmentEditorScriptedLabelEffect::sourceVolumeNodeChanged()
+{
+  // Base class implementation needs to be called before the effect-specific one
+  this->Superclass::sourceVolumeNodeChanged();
+
+  Q_D(const qSlicerSegmentEditorScriptedLabelEffect);
+  d->PythonCppAPI.callMethod(d->SourceVolumeNodeChangedMethod);
+}
+
+//-----------------------------------------------------------------------------
 void qSlicerSegmentEditorScriptedLabelEffect::masterVolumeNodeChanged()
 {
+  // Note: deprecated
   // Base class implementation needs to be called before the effect-specific one
   this->Superclass::masterVolumeNodeChanged();
 

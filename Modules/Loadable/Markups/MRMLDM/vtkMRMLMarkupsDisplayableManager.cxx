@@ -557,15 +557,7 @@ bool vtkMRMLMarkupsDisplayableManager::IsManageable(const char* nodeClassName)
     return false;
     }
 
-  vtkSmartPointer<vtkMRMLNode> node =
-    vtkSmartPointer<vtkMRMLNode>::Take(this->GetMRMLScene()->CreateNodeByClass(nodeClassName));
-  vtkMRMLMarkupsNode* markupsNode = vtkMRMLMarkupsNode::SafeDownCast(node);
-  if (!markupsNode)
-    {
-    return false;
-    }
-
-  return markupsLogic->GetWidgetByMarkupsType(markupsNode->GetMarkupType()) ? true : false;
+  return markupsLogic->IsMarkupsNodeRegistered(nodeClassName);
 }
 
 //---------------------------------------------------------------------------
@@ -875,11 +867,11 @@ vtkSlicerMarkupsWidget* vtkMRMLMarkupsDisplayableManager::GetWidgetForPlacement(
 }
 
 //---------------------------------------------------------------------------
-void vtkMRMLMarkupsDisplayableManager::SetHasFocus(bool hasFocus)
+void vtkMRMLMarkupsDisplayableManager::SetHasFocus(bool hasFocus, vtkMRMLInteractionEventData* eventData)
 {
   if (!hasFocus && this->LastActiveWidget!=nullptr)
     {
-    this->LastActiveWidget->Leave(nullptr);
+    this->LastActiveWidget->Leave(eventData);
     this->LastActiveWidget = nullptr;
     }
 }

@@ -2,7 +2,7 @@
 
 There are different approaches to install Slicer and extensions programmatically:
 
-- Install Slicer manually and install extensions by using `slicer.app.extensionsManagerModel()`. See example [below](script_repository.md#download-and-install-extension) and in [install-slicer-extension.py](https://github.com/pieper/SlicerDockers/blob/master/slicer-plus/install-slicer-extension.py)
+- Install Slicer manually and install extensions by using `slicer.app.extensionsManagerModel()`. See example [below](#download-and-install-extension) and in [install-slicer-extension.py](https://github.com/pieper/SlicerDockers/blob/master/slicer-plus/install-slicer-extension.py)
 - Directly interact with the REST API endpoints of https://slicer-packages.kitware.com using `curl` and `jq`. See [slicer-download.sh](https://github.com/Slicer/SlicerDocker/blob/master/scripts/slicer-download.sh)
 
 ## Launch Slicer
@@ -107,7 +107,7 @@ volumeNode.GetDisplayNode().SetWindowLevelMinMax(100, 200)
   -  its input is intentionally defined vaguely (it can be either node ID or name and you can use wildcards such as `*`), which is good because it make it simpler to use, but the uncertain behavior is not good for general-purpose use in a module
   -  throws an exception so that the developer knows immediately that there was a typo or other unexpected error
 - `slicer.mrmlScene.GetNodeByID()` is more appropriate when a module needs to access a MRML node:
-  - its behavior is more predictable: it only accepts node ID as input. `slicer.mrmlScene.GetFirstNodeByName()` can be used to get a node by its name, but since multiple nodes in the scene can have the same name, it is not recommended to keep reference to a node by its name. Since node IDs may change when a scene is saved and reloaded, node ID should not be stored persistently, but [node references](mrml_overview.md#mrml-node-references) must be used instead
+  - its behavior is more predictable: it only accepts node ID as input. `slicer.mrmlScene.GetFirstNodeByName()` can be used to get a node by its name, but since multiple nodes in the scene can have the same name, it is not recommended to keep reference to a node by its name. Since node IDs may change when a scene is saved and reloaded, node ID should not be stored persistently, but [node references](/developer_guide/mrml_overview.md#mrml-node-references) must be used instead
   - if node is not found it returns `None` (instead of throwing an exception), because this is often not considered an error in module code (it is just used to check existence of a node) and using return value for not-found nodes allows simpler syntax
 
 :::
@@ -257,7 +257,7 @@ for volumeNode in volumeNodes:
     volumeStorageNode.SetFileName(volumeStorageNode.GetFileName().replace(originalFileExtension, requiredFileExtension))
 ```
 
-To set all volume nodes to save uncompressed by default (add this to [.slicerrc.py file ](../user_guide/settings.md#application-startup-file) so it takes effect for the whole session):
+To set all volume nodes to save uncompressed by default (add this to [slicerrc.py file](/user_guide/settings.md#application-startup-file) so it takes effect for the whole session):
 
 ```python
 #set the default volume storage to not compress by default
@@ -315,6 +315,73 @@ To display text in slice views, replace the first line by this line (and conside
 
 ```python
 view=slicer.app.layoutManager().sliceWidget("Red").sliceView()
+```
+
+### Activate hanging protocol by keyboard shortcut
+
+This code snippet shows how to specify a hanging protocol for PET/CT with the following properties:
+- window/level and colormap is set to standardized values
+- any acquisition transforms hardened on the images (these transforms are created for example when the image is acquired with varying slice spacing)
+- show PET/CT images fused in slice views
+- show PET image and fused image slices in 3D view
+
+The hanging protocol can be activated using the Ctrl+9 keyboard shortcut.
+
+```python
+def useHangingProtocolPetCt():
+    ctImage = None
+    petImage = None
+
+    shNode = slicer.vtkMRMLSubjectHierarchyNode.GetSubjectHierarchyNode(slicer.mrmlScene)
+    petColor = slicer.mrmlScene.GetFirstNodeByName('PET-Heat')
+    for imageNode in slicer.util.getNodesByClass('vtkMRMLScalarVolumeNode'):
+        # Harden any transform (in case the image is stored non-uniform spacing, etc.
+        # hardening the acquisition transforms creates a single Cartesian volume)
+        imageNode.HardenTransform()
+
+        # Set window/level and colormap for recognized image types
+        imageItem = shNode.GetItemByDataNode(imageNode)
+        modality = shNode.GetItemAttribute(imageItem, 'DICOM.Modality')
+        if modality == "CT":
+            ctImage = imageNode
+            ctImage.GetVolumeDisplayNode().SetAndObserveColorNodeID(petColor.GetID())
+            slicer.modules.volumes.logic().ApplyVolumeDisplayPreset(ctImage.GetVolumeDisplayNode(), "CT_ABDOMEN")
+        elif modality == "PT":
+            petImage = imageNode
+            petImage.GetVolumeDisplayNode().SetAndObserveColorNodeID(petColor.GetID())
+            petImage.GetVolumeDisplayNode().SetWindowLevelMinMax(0, 20)
+
+    # Set up view layout and content
+    slicer.app.layoutManager().setLayout(slicer.vtkMRMLLayoutNode.SlicerLayoutFourUpView)
+    slicer.util.setSliceViewerLayers(background=ctImage, foreground=petImage, foregroundOpacity=0.3, fit=True)
+
+    # Show the PET image in 3D view using volume rendering
+    vrLogic = slicer.modules.volumerendering.logic()
+    vrDisplayNode = vrLogic.CreateDefaultVolumeRenderingNodes(petImage)
+    vrDisplayNode.SetVisibility(True)
+    # Use the same window/level and colormap settings for volume rendering as for slice display
+    vrDisplayNode.SetFollowVolumeDisplayNode(True)
+
+    # Show slice views in 3D view
+    layoutManager = slicer.app.layoutManager()
+    for sliceViewName in layoutManager.sliceViewNames():
+        controller = layoutManager.sliceWidget(sliceViewName).sliceController()
+        controller.setSliceVisible(True)
+
+    # Center and fit displayed content in 3D view
+    layoutManager = slicer.app.layoutManager()
+    threeDWidget = layoutManager.threeDWidget(0)
+    threeDView = threeDWidget.threeDView()
+    threeDView.rotateToViewAxis(3)  # look from anterior direction
+    threeDView.resetFocalPoint()  # reset the 3D view cube size and center it
+    threeDView.resetCamera()  # reset camera zoom
+
+    return [ctImage, petImage]
+
+# Register keyboard shortcut
+shortcut = qt.QShortcut(slicer.util.mainWindow())
+shortcut.setKey(qt.QKeySequence("Ctrl+9"))
+shortcut.connect( "activated()", useHangingProtocolPetCt)
 ```
 
 ### Show orientation marker in all views
@@ -402,6 +469,14 @@ Crosshair node stores two positions: Cursor position is the current position of 
 
 :::
 
+### Change the crosshair color
+
+```python
+# Get the crosshair node
+crosshairNode = slicer.util.getNode("Crosshair")
+# Set the crosshair color to Red
+crosshairNode.SetCrosshairColor(1.0, 0.0, 0.0)
+```
 ### Display mouse pointer coordinates in alternative coordinate system
 
 The Data probe only shows coordinate values in the world coordinate system. You can make the world coordinate system mean anything you want (e.g., MNI) by applying a transform to the volume that transforms it into that space. See more details in [here ](https://discourse.slicer.org/t/setting-an-mni-origo-to-a-volume/16164/4).
@@ -424,6 +499,26 @@ observationId = crosshairNode.AddObserver(slicer.vtkMRMLCrosshairNode.CursorPosi
 
 # Run this to stop displaying values:
 # crosshairNode.RemoveObserver(observationId)
+```
+
+### Get 3D coordinates from 2D display coordinates
+
+If 2D display position (in pixels) of a model's surface point is known then this code snippet can compute its position in 3D (in world coordinate system).
+
+```python
+# Display position is in pixels, origin is top-left corner
+displayPosition = [10, 12]
+
+# Get model displayable manager
+threeDViewWidget = slicer.app.layoutManager().threeDWidget(0)
+modelDisplayableManager = threeDViewWidget.threeDView().displayableManagerByClassName("vtkMRMLModelDisplayableManager")
+
+# Use model displayable manager's point picker
+if modelDisplayableManager.Pick(displayPosition[0], displayPosition[1]) and modelDisplayableManager.GetPickedNodeID():
+    rasPosition = modelDisplayableManager.GetPickedRAS()
+    print(rasPosition)
+else:
+    print(f"No model is visible at {displayPosition}")
 ```
 
 ### Get DataProbe text
@@ -458,7 +553,7 @@ slicer.mrmlScene.AddNode(invertedocean)
 
 ### Show color legend for a volume node
 
-Display color legend for a volume node in slice views:
+Display color legend for a volume node in slice views (and in 3D views, if the slice is displayed in 3D):
 
 ```python
 volumeNode = getNode('MRHead')
@@ -532,7 +627,7 @@ layoutManager.layoutLogic().GetLayoutNode().AddLayoutDescription(customLayoutId,
 layoutManager.setLayout(customLayoutId)
 ```
 
-See description of standard layouts (that can be used as examples) here: https://github.com/Slicer/Slicer/blob/master/Libs/MRML/Logic/vtkMRMLLayoutLogic.cxx
+See description of standard layouts (that can be used as examples) here: https://github.com/Slicer/Slicer/blob/main/Libs/MRML/Logic/vtkMRMLLayoutLogic.cxx
 
 You can use this code snippet to add a button to the layout selector toolbar:
 
@@ -696,7 +791,7 @@ for sliceViewName in layoutManager.sliceViewNames():
 
 ### Change default slice view orientation
 
-You can left-right "flip" slice view orientation presets (show patient left side on left/right side of the screen) by copy-pasting the script below to your [.slicerrc.py file](../user_guide/settings.md#application-startup-file).
+You can left-right "flip" slice view orientation presets (show patient left side on left/right side of the screen) by copy-pasting the script below to your [slicerrc.py file](/user_guide/settings.md#application-startup-file).
 
 ```python
 # Axial slice axes:
@@ -729,7 +824,7 @@ for sliceNode in sliceNodes:
 
 ### Set all slice views linked by default
 
-You can make slice views linked by default (when application starts or the scene is cleared) by copy-pasting the script below to your [.slicerrc.py file ](../user_guide/settings.md#application-startup-file).
+You can make slice views linked by default (when application starts or the scene is cleared) by copy-pasting the script below to your [.slicerrc.py file](/user_guide/settings.md#application-startup-file).
 
 ```python
 # Set linked slice views  in all existing slice composite nodes and in the default node
@@ -746,7 +841,7 @@ for sliceCompositeNode in sliceCompositeNodes:
 
 ### Set crosshair jump mode to centered by default
 
-You can change default slice jump mode (when application starts or the scene is cleared) by copy-pasting the script below to your [.slicerrc.py file ](../user_guide/settings.md#application-startup-file).
+You can change default slice jump mode (when application starts or the scene is cleared) by copy-pasting the script below to your [.slicerrc.py file](/user_guide/settings.md#application-startup-file).
 
 ```python
 crosshair=slicer.mrmlScene.GetFirstNodeByClass("vtkMRMLCrosshairNode")
@@ -800,6 +895,13 @@ threeDView.yaw()
 viewNode = slicer.app.layoutManager().threeDWidget(0).mrmlViewNode()
 viewNode.SetBackgroundColor(1,0,0)
 viewNode.SetBackgroundColor2(1,0,0)
+```
+
+### Change box color in 3D view
+
+```python
+viewNode = slicer.app.layoutManager().threeDWidget(0).mrmlViewNode()
+viewNode.SetBoxColor(1,0,0)
 ```
 
 ### Show a slice view outside the view layout
@@ -936,7 +1038,7 @@ See more information on physically based rendering in VTK here: https://blog.kit
 
 ### Customize keyboard shortcuts
 
-Keyboard shortcuts can be specified for activating any Slicer feature by adding a couple of lines to your [.slicerrc.py file](../user_guide/settings.md#application-startup-file).
+Keyboard shortcuts can be specified for activating any Slicer feature by adding a couple of lines to your [.slicerrc.py file](/user_guide/settings.md#application-startup-file).
 
 For example, this script registers <kbd>Ctrl+b</kbd>, <kbd>Ctrl+n</kbd>, <kbd>Ctrl+m</kbd>, <kbd>Ctrl+,</kbd> keyboard shortcuts to switch between red, yellow, green, and 4-up view layouts.
 
@@ -954,7 +1056,7 @@ for (shortcutKey, callback) in shortcuts:
   shortcut.connect( "activated()", callback)
 ```
 
-Here's an example for cycling through Segment Editor effects (requested [on the Slicer forum](https://discourse.slicer.org/t/is-there-a-keystroke-to-cycle-through-effects-in-segment-editor/10117/2) for the [SlicerMorph](https://slicermorph.org) project).
+Here's an example for cycling through Segment Editor effects (requested [on the Slicer forum](https://discourse.slicer.org/t/is-there-a-keystroke-to-cycle-through-effects-in-segment-editor/10117/2) for the [SlicerMorph](https://slicermorph.github.io/) project).
 
 ```python
 def cycleEffect(delta=1):
@@ -1005,6 +1107,40 @@ cameraWidget.SetEventTranslationClickAndDrag(cameraWidget.WidgetStateIdle, vtk.v
 # Make right-click-and-drag rotate the view
 cameraWidget.SetEventTranslationClickAndDrag(cameraWidget.WidgetStateIdle, vtk.vtkCommand.RightButtonPressEvent, vtk.vtkEvent.NoModifier,
   cameraWidget.WidgetStateRotate, cameraWidget.WidgetEventRotateStart, cameraWidget.WidgetEventRotateEnd)
+```
+
+#### Custom shortcut for moving crosshair in a slice view
+
+```python
+# Red slice view
+sliceViewLabel = "Red"
+sliceViewWidget = slicer.app.layoutManager().sliceWidget(sliceViewLabel)
+displayableManager = sliceViewWidget.sliceView().displayableManagerByClassName("vtkMRMLCrosshairDisplayableManager")
+widget = displayableManager.GetSliceIntersectionWidget()
+
+# Set crosshair position by left-click
+widget.SetEventTranslation(widget.WidgetStateIdle, slicer.vtkMRMLInteractionEventData.LeftButtonClickEvent, vtk.vtkEvent.NoModifier, widget.WidgetEventSetCrosshairPosition)
+widget.SetEventTranslation(widget.WidgetStateIdle, slicer.vtkMRMLInteractionEventData.LeftButtonClickEvent, vtk.vtkEvent.NoModifier, widget.WidgetEventSetCrosshairPosition)
+
+# Move crosshair by Alt+left-click-and-drag
+widget.SetEventTranslationClickAndDrag(widget.WidgetStateIdle, vtk.vtkCommand.LeftButtonPressEvent, vtk.vtkEvent.AltModifier,
+  widget.WidgetStateMoveCrosshair, widget.WidgetEventMoveCrosshairStart, widget.WidgetEventMoveCrosshairEnd)
+```
+
+#### Custom shortcut for moving crosshair in a 3D view
+
+```python
+# 3D view
+threeDViewWidget = slicer.app.layoutManager().threeDWidget(0)
+cameraDisplayableManager = threeDViewWidget.threeDView().displayableManagerByClassName("vtkMRMLCameraDisplayableManager")
+widget = cameraDisplayableManager.GetCameraWidget()
+
+# Set crosshair position by left-click
+widget.SetEventTranslation(widget.WidgetStateIdle, slicer.vtkMRMLInteractionEventData.LeftButtonClickEvent, vtk.vtkEvent.NoModifier, widget.WidgetEventSetCrosshairPosition)
+
+# Move crosshair by Alt+left-click-and-drag
+widget.SetEventTranslationClickAndDrag(widget.WidgetStateIdle, vtk.vtkCommand.LeftButtonPressEvent, vtk.vtkEvent.AltModifier,
+  widget.WidgetStateMoveCrosshair, widget.WidgetEventMoveCrosshairStart, widget.WidgetEventMoveCrosshairEnd)
 ```
 
 #### Add shortcut to adjust window/level in any mouse mode
@@ -1091,12 +1227,10 @@ On some systems, *shell=True* must be specified as well.
 extensionName = 'SlicerIGT'
 em = slicer.app.extensionsManagerModel()
 if not em.isExtensionInstalled(extensionName):
-  extensionMetaData = em.retrieveExtensionMetadataByName(extensionName)
-  url = f"{em.serverUrl().toString()}/api/v1/item/{extensionMetaData['_id']}/download"
-  extensionPackageFilename = slicer.app.temporaryPath+'/'+extensionMetaData['_id']
-  slicer.util.downloadFile(url, extensionPackageFilename)
-  em.interactive = False  # Disable popups (automatically install dependencies)
-  em.installExtension(extensionPackageFilename)
+  em.interactive = False  # prevent display of popups
+  em.updateExtensionsMetadataFromServer(True, True)  # update extension metadata from server now
+  if not em.downloadAndInstallExtensionByName(extensionName, True, True):  # install dependencies, wait for installation to finish
+    raise ValueError(f"Failed to install {extensionName} extension")
   slicer.util.restart()
 ```
 

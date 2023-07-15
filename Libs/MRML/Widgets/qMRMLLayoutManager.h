@@ -126,6 +126,9 @@ public:
   /// qMRMLThreeDWidget respectively).
   Q_INVOKABLE QWidget* viewWidget(vtkMRMLNode* n) const;
 
+  /// Get a list of all QWidgets for all views in the layout manager.
+  Q_INVOKABLE QList<QWidget*> viewWidgets() const;
+
   /// Get slice view widget identified by \a name
   Q_INVOKABLE qMRMLSliceWidget* sliceWidget(const QString& name)const;
 
@@ -139,8 +142,12 @@ public:
 
   /// Return the number of instantiated ThreeDRenderView
   int threeDViewCount()const;
+  /// Return the number of plot views
   int tableViewCount()const;
+  /// Return the number of table views
   int plotViewCount()const;
+  /// Return the total number of views
+  int viewCount() const;
 
   /// Get ThreeDWidget identified by \a id
   /// where \a id is an integer ranging from 0 to N-1 with N being the number
@@ -165,9 +172,6 @@ public:
   /// vtkMRMLLayoutNode::ViewArrangement
   /// \sa vtkMRMLLayoutNode::SlicerLayout, layoutLogic()
   int layout()const;
-
-  /// Return the view node that is temporarily shown maximized in the view layout.
-  Q_INVOKABLE vtkMRMLAbstractViewNode* maximizedViewNode();
 
   /// Return the layout logic instantiated and used by the manager.
   /// \sa setLayout(), layout()
@@ -204,6 +208,11 @@ public:
   /// activeThreeDRenderer()
   Q_INVOKABLE vtkRenderer* activePlotRenderer()const;
 
+  /// Returns the number of global pause render counts that have been called on the layout manager.
+  /// This value does not include pauseRender counts that have been called on each view individually,
+  /// and is used to set the pause render state when new views are created.
+  /// \sa pauseRender(), resumeRender(), setRenderPaused()
+  int allViewsPauseRenderCount();
 
 public slots:
   /// Set the enabled property value
@@ -218,9 +227,15 @@ public slots:
   /// It creates views if needed.
   void setLayout(int newLayout);
 
-  /// Makes a view displayed maximized (taking the entire area) of the view layout.
-  /// Setting the value to nullptr restores the original view layout.
-  void setMaximizedViewNode(vtkMRMLAbstractViewNode* viewNode);
+  /// Makes a view displayed maximized (taking the entire area) of its viewport.
+  /// Calling removeMaximizedViewNode() with the same view node restores the original view layout.
+  void addMaximizedViewNode(vtkMRMLAbstractViewNode* viewNode);
+
+  /// Restores the original (non-maximized) layout of the viewport.
+  void removeMaximizedViewNode(vtkMRMLAbstractViewNode* viewNode);
+
+  /// Restore original (non-maximized) view layouts in all viewports.
+  void removeAllMaximizedViewNodes();
 
   /// Change the number of viewers in comparison modes
   /// It creates views if needed.
@@ -265,7 +280,9 @@ protected:
   QScopedPointer<qMRMLLayoutManagerPrivate> d_ptr;
   qMRMLLayoutManager(qMRMLLayoutManagerPrivate* obj, QWidget* viewport, QObject* parent);
 
+  QWidget* createViewport(const QDomElement& layoutElement, const QString& viewportName) override;
   void onViewportChanged() override;
+  void onViewportUsageChanged(const QString& viewportName) override;
 
   using ctkLayoutManager::setLayout;
 private:

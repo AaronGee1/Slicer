@@ -60,7 +60,7 @@ public:
   /// method GetRenderer(int) that returns the renderer for the Nth
   /// lightbox pane. The DisplayableManagers use this method to map
   /// coordinates to the proper lightbox pane, e.g. in placing
-  /// crosshairs or annotations in the proper renderer.
+  /// crosshairs or markups in the proper renderer.
   virtual void SetLightBoxRendererManagerProxy(vtkMRMLLightBoxRendererManagerProxy *);
 
   /// Get the LightBoxRendererManagerProxy if one has been provided
@@ -101,7 +101,7 @@ public:
   virtual bool ProcessInteractionEvent(vtkMRMLInteractionEventData* eventData);
 
   /// Set if the widget gets/loses focus (interaction events are processed by this displayable manager).
-  virtual void SetHasFocus(bool hasFocus);
+  virtual void SetHasFocus(bool hasFocus, vtkMRMLInteractionEventData* eventData);
 
   /// Displayable manager can indicate that it would like to get all events (even when mouse pointer is outside the window).
   virtual bool GetGrabFocus();
@@ -137,7 +137,7 @@ protected:
 
   /// Subclass can overload this method to specify under which InteractionNode modes
   /// this Displayable Manager InteractorStyle events.
-  /// By default events only arrive when in Place mode (good for annotations)
+  /// By default events only arrive when in Place mode (good for markups)
   /// but if you want a continuous read out of, for example, slice positions while
   /// the mouse moves set this to include Place and ViewTransform
   virtual int ActiveInteractionModes();
@@ -207,7 +207,7 @@ protected:
   /// Remove MRML observers
   virtual void RemoveMRMLObservers();
 
-  /// Specify if UodateFromMRML() should be called
+  /// Specify if UpdateFromMRML() should be called
   /// \sa UpdateFromMRML()
   void SetUpdateFromMRMLRequested(bool requested);
 

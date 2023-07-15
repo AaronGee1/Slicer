@@ -186,7 +186,7 @@ public:
   /// \param editMode defines editable regions based on existing segments
   /// \param referenceGeometry defines image geometry (extent and IJK to world matrix) of the output
   /// \param editedSegmentID this segment will be always editable (regardless of editMode), optional
-  /// \param masterVolume used for intensity-based masking
+  /// \param sourceVolume used for intensity-based masking
   /// \param editableIntensityRange used for intensity-based masking
   /// \param displayNode used when edit mode refers to visible segments.
   ///   If not specified then the first display node is used.
@@ -194,7 +194,7 @@ public:
   virtual bool GenerateEditMask(vtkOrientedImageData* maskImage, int editMode,
     vtkOrientedImageData* referenceGeometry,
     std::string editedSegmentID="", std::string maskSegmentID="",
-    vtkOrientedImageData* masterVolume = nullptr, double editableIntensityRange[2] = nullptr,
+    vtkOrientedImageData* sourceVolume = nullptr, double editableIntensityRange[2] = nullptr,
     vtkMRMLSegmentationDisplayNode* displayNode = nullptr);
 
   /// Expose reference identifier to get the volume node defining the reference image geometry if any
@@ -209,12 +209,25 @@ public:
 
   // Convenience functions for commonly needed features
 
-  /// Change master representation. All other representations are automatically computed
-  /// from the master representation.
-  virtual bool SetMasterRepresentationToBinaryLabelmap();
-  /// Change master representation. All other representations are automatically computed
-  /// from the master representation.
-  virtual bool SetMasterRepresentationToClosedSurface();
+  /// Change source representation. All other representations are automatically computed
+  /// from the source representation.
+  virtual bool SetSourceRepresentationToBinaryLabelmap();
+  /// Change source representation. All other representations are automatically computed
+  /// from the source representation.
+  virtual bool SetSourceRepresentationToClosedSurface();
+
+  /// \deprecated Use SetSourceRepresentationToBinaryLabelmap instead.
+  virtual bool SetMasterRepresentationToBinaryLabelmap()
+    {
+    vtkWarningMacro("vtkSegmentation::SetMasterRepresentationToBinaryLabelmap() method is deprecated, please use SetSourceRepresentationToBinaryLabelmap method instead");
+    return this->SetSourceRepresentationToClosedSurface();
+    };
+  /// \deprecated Use SetSourceRepresentationToClosedSurface instead.
+  virtual bool SetMasterRepresentationToClosedSurface()
+    {
+    vtkWarningMacro("vtkSegmentation::SetMasterRepresentationToClosedSurface() method is deprecated, please use SetSourceRepresentationToClosedSurface method instead");
+    return this->SetSourceRepresentationToClosedSurface();
+    };
 
   /// Generate binary labelmap representation for all segments.
   virtual bool CreateBinaryLabelmapRepresentation();
@@ -222,17 +235,17 @@ public:
   /// Remove binary labelmap representation for all segments.
   virtual void RemoveBinaryLabelmapRepresentation();
 
-  /// Get a segment as binary labelmap.
-  /// If representation does not exist yet then call CreateBinaryLabelmapRepresentation() before.
+  /// Get a segment as a binary labelmap.
+  /// If representation does not exist yet then CreateBinaryLabelmapRepresentation() must be called before this method.
   /// This function returns a copy of the segment binary labelmap in outputBinaryLabelmap.
   /// Returns true on success.
   virtual bool GetBinaryLabelmapRepresentation(const std::string segmentId, vtkOrientedImageData* outputBinaryLabelmap);
 
-  /// Get a segment as binary labelmap.
-  /// If representation does not exist yet then call CreateBinaryLabelmapRepresentation() before.
+  /// Get low-level access to the image data of a segment's binary labelmap representation.
+  /// If representation does not exist yet then CreateBinaryLabelmapRepresentation() must be called before this method.
   /// This function returns a pointer to the original labelmap representation in the segment.
   /// The binary labelmap can be a shared labelmap containing multiple segments.
-  /// To get a list of all segments in a shared labelmap, call vtkSegmentation::GetSegmentIDsSharingRepresentation()
+  /// To get a list of all segments in a shared labelmap, call vtkSegmentation::GetSegmentIDsSharingRepresentation().
   /// The label value used for each segment can be retrieved using vtkSegment::GetLabelValue().
   virtual vtkOrientedImageData* GetBinaryLabelmapInternalRepresentation(const std::string segmentId);
 
@@ -243,15 +256,18 @@ public:
   /// Remove closed surface representation for all segments.
   virtual void RemoveClosedSurfaceRepresentation();
 
-  /// Get a segment as binary labelmap.
-  /// If representation does not exist yet then call CreateClosedSurfaceRepresentation() before.
+  /// Get a segment as a surface mesh.
+  /// If representation does not exist yet then CreateClosedSurfaceRepresentation() must be called before this method.
   /// This function returns a copy of the segment closed surface in outputClosedSurface.
   /// Returns true on success.
   virtual bool GetClosedSurfaceRepresentation(const std::string segmentId, vtkPolyData* outputClosedSurface);
 
-  /// Get a segment as binary labelmap.
-  /// If representation does not exist yet then call CreateClosedSurfaceRepresentation() before.
-  /// This function returns a copy of the segment closed surface.
+  /// Get low-level access to the vtkPolyData object that stores a segment's closed surface representation.
+  /// If representation does not exist yet then CreateClosedSurfaceRepresentation() must be called before this method.
+  /// This function gives direct access to the internal data object, therefore modifications to this object will change the segmentation.
+  /// Internal representation of the data object may change in the future (for example it may be possible that one vtkPolyData
+  /// will be shared between multiple segments), therefore to get closed surface representation of a segment for read-only access,
+  /// GetClosedSurfaceRepresentation() method is recommended.
   virtual vtkPolyData* GetClosedSurfaceInternalRepresentation(const std::string segmentId);
 
   /// Add new segment from a closed surface.
@@ -311,9 +327,9 @@ protected:
   /// Callback function for all events from the segmentation object.
   static void SegmentationModifiedCallback(vtkObject* caller, unsigned long eid, void* clientData, void* callData);
 
-  /// Callback function observing the master representation of the segmentation (and each segment within)
+  /// Callback function observing the source representation of the segmentation (and each segment within)
   /// Invalidates all representations other than the master. These representations will be automatically converted later on demand.
-  void OnMasterRepresentationModified();
+  void OnSourceRepresentationModified();
 
   /// Callback function observing segment added events.
   /// Triggers update of display properties
@@ -359,4 +375,4 @@ protected:
   std::string SegmentListFilterOptions;
 };
 
-#endif // __vtkMRMLSegmentationNode_h
+#endif

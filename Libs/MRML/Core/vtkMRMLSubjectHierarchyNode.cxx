@@ -87,7 +87,7 @@ public:
   bool Expanded{true};
 
   /// List of UIDs of this subject hierarchy node
-  /// UIDs can be DICOM UIDs, MIDAS urls, etc.
+  /// UIDs can be DICOM UIDs, Girder urls, etc.
   std::map<std::string, std::string> UIDs;
 
   /// Attributes (metadata, referenced IDs, etc.)
@@ -998,8 +998,7 @@ bool vtkSubjectHierarchyItem::Move(vtkSubjectHierarchyItem* beforeItem)
     }
   if (beforeItem == this)
     {
-    vtkErrorMacro("Move: Item cannot be moved before itself");
-    return false;
+    return true;
     }
 
   // Remove item from parent
@@ -1077,18 +1076,12 @@ int vtkSubjectHierarchyItem::GetPositionUnderParent()
 //---------------------------------------------------------------------------
 vtkIdType vtkSubjectHierarchyItem::GetChildByPositionUnderParent(int position)
 {
-  int currentPosition = 0;
-  ChildVector::iterator childIt;
-  for (childIt=this->Children.begin(); childIt!=this->Children.end(); ++childIt, ++currentPosition)
+  if (position < 0 || position >= static_cast<int>(this->Children.size()))
     {
-    if (currentPosition == position)
-      {
-      return childIt->GetPointer()->ID;
-      }
+    vtkErrorMacro("GetChildByPositionUnderParent: Failed to find subject hierarchy item under parent " << this->Name << " at position " << position);
+    return vtkMRMLSubjectHierarchyNode::INVALID_ITEM_ID;
     }
-  // Failed to find item
-  vtkErrorMacro("GetChildByPositionUnderParent: Failed to find subject hierarchy item under parent " << this->Name << " at position " << position);
-  return vtkMRMLSubjectHierarchyNode::INVALID_ITEM_ID;
+  return this->Children[position].GetPointer()->ID;
 }
 
 //---------------------------------------------------------------------------
@@ -3127,10 +3120,6 @@ void vtkMRMLSubjectHierarchyNode::SetItemDisplayVisibility(vtkIdType itemID, int
     {
     vtkErrorMacro("SetItemDisplayVisibility: Invalid visibility value to set: " << visible
       << ". Needs to be one of the following: 0:Hidden, 1:Visible" );
-    return;
-    }
-  if (this->Scene->IsBatchProcessing())
-    {
     return;
     }
 

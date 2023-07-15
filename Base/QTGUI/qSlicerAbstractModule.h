@@ -30,7 +30,6 @@
 // Slicer includes
 #include "qSlicerAbstractCoreModule.h"
 #include "qSlicerBaseQTGUIExport.h"
-#include "vtkSlicerVersionConfigure.h" // For Slicer_VERSION_MAJOR, Slicer_VERSION_MINOR
 
 class QAction;
 class qSlicerAbstractModulePrivate;
@@ -56,7 +55,7 @@ public:
   /// as well as in the frequently used module toolbar (if any).
   virtual QIcon icon()const;
 
-  /// The logo of the module, the credits given by the grants or instution
+  /// The logo of the module, the credits given by the grants or institution
   virtual QImage logo()const;
 
   /// Returns then associated QAction of the module. It contains all the

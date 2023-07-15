@@ -175,6 +175,9 @@ public:
   /// \param referenceVolumeNode If specified, then the merged labelmap node will match the geometry of referenceVolumeNode
   /// \param extentComputationMode If referenceVolumeNode is not specified then labelmap extents will be determined based on this value.
   ///   By default, the minimum necessary size is used. Set value to vtkSegmentation::EXTENT_REFERENCE_GEOMETRY to use reference geometry extent.
+  /// \param colorTableNode If specified then it is used for setting label values in the output labelmapNode (by matching segment name to color name).
+  ///   RGB values in the colorTableNode are updated with corresponding segment colors.
+  ///   New color table entries are added for each segment that had no corresponding entry in the table already.
   static bool ExportSegmentsToLabelmapNode(vtkMRMLSegmentationNode* segmentationNode, const std::vector<std::string>& segmentIDs,
     vtkMRMLLabelMapVolumeNode* labelmapNode, vtkMRMLVolumeNode* referenceVolumeNode = nullptr,
     int extentComputationMode = vtkSegmentation::EXTENT_UNION_OF_EFFECTIVE_SEGMENTS, vtkMRMLColorTableNode* colorTableNode = nullptr);
@@ -351,7 +354,7 @@ public:
     std::string segmentID, vtkPolyData* polyData, bool applyParentTransform = true);
 
   /// Set a labelmap image as binary labelmap representation into the segment defined by the segmentation node and segment ID.
-  /// Master representation must be binary labelmap! Master representation changed event is disabled to prevent deletion of all
+  /// Source representation must be binary labelmap! Source representation changed event is disabled to prevent deletion of all
   /// other representation in all segments. The other representations in the given segment are re-converted. The extent of the
   /// segment binary labelmap is shrunk to the effective extent. Display update is triggered.
   /// \param mergeMode Determines if the labelmap should replace the segment, combined with a maximum or minimum operation, or set under the mask.
@@ -415,7 +418,7 @@ public:
   static bool GetSharedSegmentIDsInMask(vtkMRMLSegmentationNode* segmentationNode, std::string sharedSegmentID, vtkOrientedImageData* mask, const int extent[6],
     std::vector<std::string>& segmentIDs, int maskThreshold = 0.0, bool includeInputSharedSegmentID = false);
 
-  /// Reconvert all representations in the segmentation from the master representation
+  /// Reconvert all representations in the segmentation from the source representation
   /// \param segmentationNode Node containing the segmentation
   /// \param sharedSegmentID Segment IDs to be converted. If empty, all segments will be converted.
   /// \return True if the representation was created, False otherwise

@@ -16,18 +16,59 @@ Data in the scene can be saved to DICOM files in two steps:
 1. Export to database: save data from the scene into the application's DICOM database
 2. Export to file system: copy DICOM files from the database to a chosen folder in the file system
 
-More details are provided in the [DICOM module documentation](modules/dicom).
+More details are provided in the [DICOM module documentation](modules/dicom.md).
 
 ## Non-DICOM data
 
-Non-DICOM data, covering all types of data ranging from images (nrrd, nii.gz, ...) and models (stl, ply, obj, ...) to tables (csv, txt) and point lists (json).
+Non-DICOM data, covering all types of data ranging from images (nrrd, nii.gz, ...) and models (stl, ply, obj, ...) to tables (csv, txt), point lists (json), etc.
 
-  - Loading can happen in two ways: drag&drop file on the application window, or by using the Load Data button on the toolbar ![](../../Base/QTGUI/Resources/Icons/Medium/SlicerLoadData.png).
-  - Saving happens with the Save Data toolbar button ![](../../Base/QTGUI/Resources/Icons/Medium/SlicerSave.png).
+### Load data
+
+To load data:
+- drag&drop file on the application window, or
+- in application menu: `File` -> `Add Data` (or `Add Data` toolbar button) ![](../../Base/QTGUI/Resources/Icons/Medium/SlicerLoadData.png)
+
+![](https://github.com/Slicer/Slicer/releases/download/docs-resources/data_loading_and_saving_load_dialog.png)
+
+### Save data
+
+To save the entire scene (all data, visualization and processing settings, etc.):
+- in application menu `File` -> `Save Data`, or
+- `Save Data` toolbar button ![](../../Base/QTGUI/Resources/Icons/Medium/SlicerSave.png)
+
+:::{tip}
+
+The entire workspace, including all data and settings can be saved into a single, independent, self-contained `.mrb` file by clicking on the small package icon at the top-left corner. A new copy of all files is written and zipped into a single file, therefore saving takes longer time than an incremental saving of only the modified files.
+
+:::
 
 ![](https://github.com/Slicer/Slicer/releases/download/docs-resources/data_loading_and_saving_save_dialog.png)
 
+### Export data
+
+To export selected data sets - for sharing with others or for loading into other applications: go to `Data` module, right-click on an item, and choose `Export to file...`. Settings used for exporting (file format, filename, options) do not modify settings used for saving.
+
+![](https://github.com/Slicer/Slicer/releases/download/docs-resources/data_loading_and_saving_export_dialog.png)
+
+:::{tip}
+
+Multiple nodes can be exported at once by placing them into a folder and then by exporting the folder. When exporting an entire folder hierarchy the `Export folder structure` option can be enabled to have the directory structure in the output directory match the subject hierarchy folder structure.
+
+:::
+
 ## Supported Data Formats
+
+:::{note}
+
+### On use of LPS/RAS coordinate systems
+
+DICOM and most medical imaging software uses the **LPS coordinate system** for storing all data. Axis directions of this coordinate system are patient left, posterior, and superior. Unit is millimeters. The choice of origin is arbitrary because only relative differences have meaning, so there is no universal standard, but it is often set to some geometric center of the imaging system, or it is chosen to be near the center of an object of interest.
+
+**RAS coordinate system** is almost the same as the LPS coordinate system, except the axis directions are patient right, anterior, superior, i.e., the sign of the first two coordinates is inverted. Both LPS and RAS were in wide use in the early 2000s when development of Slicer was started and Slicer developers chose to use the RAS coordinate system.  Historically scans by GE equipment used RAS while Siemens and others used LPS.  Since several GE researchers were early contributors to Slicer, RAS was adopted for the internal representation.
+
+Slicer still uses RAS coordinate system for storing coordinate values internally for all data types, but for compatibility with other software, it assumes that all data in files are stored in LPS coordinate system (unless the coordinate system in the file is explicitly stated to be RAS). To achieve this, whenever Slicer reads or writes a file, it may need to flip the sign of the first two coordinate axes to convert the data to RAS coordinate system. 
+
+::: 
 
 ### Images
 
@@ -51,7 +92,7 @@ Readers may support 2D, 3D, and 4D images of various types, such as scalar, vect
   - To load an image file as segmentation (also known as label image, mask, region of interest) see [Segmentations module documentation](modules/segmentations.md#import-an-existing-segmentation-from-volume-file)
 - [**MetaImage**](https://www.itk.org/Wiki/MetaIO/Documentation) (.mha, .mhd): Coordinate system: LPS (AnatomicalOrientation in the file header is ignored).
 - [**VTK**](https://www.vtk.org/VTK/img/file-formats.pdf) (.vtk): Coordinate system: LPS. Important limitation: image axis directions cannot be stored in this file format.
-- [**Analyze**](https://www.grahamwideman.com/gw/brain/analyze/formatdoc.htm) (.hdr, .img, .img.gz): Image orientation is specified ambiguously in this format, therefore its use is strongle discouraged. For brain imaging, use Nifti format instead.
+- [**Analyze**](https://web.archive.org/web/20220312005651/www.grahamwideman.com/gw/brain/analyze/formatdoc.htm) (.hdr, .img, .img.gz): Image orientation is specified ambiguously in this format, therefore its use is strongle discouraged. For brain imaging, use Nifti format instead.
 - [**Nifti**](https://nifti.nimh.nih.gov/nifti-1/) (.nii, .nii.gz): File format for brain MRI. Not well suited as a general-purpose 3D image file format (use NRRD format instead).
   - To load an image file as segmentation (also known as label image, mask, region of interest) see [Segmentations module documentation](modules/segmentations.md#import-an-existing-segmentation-from-volume-file)
 - **Tagged image file format** (.tif, .tiff): can read/write single/series of frames
@@ -92,20 +133,20 @@ Surface or volumetric meshes.
 - [**VTK Polygonal Data**](https://vtk.org/wp-content/uploads/2015/04/file-formats.pdf) (.vtk, .vtp): Default coordinate system: LPS. Coordinate system (LPS/RAS) can be specified in header. Full color (RGB or RGBA) meshes can be read and written (color must be assigned as point scalar data of `unsigned char` type and 3 or 4 components). Texture image can be applied using "Texture model" module (in SlicerIGT extension).
 - [**VTK Unstructured Grid Data**](https://vtk.org/wp-content/uploads/2015/04/file-formats.pdf) (.vtk, .vtu): Volumetric mesh. Default coordinate system: LPS. Coordinate system (LPS/RAS) can be specified in header.
 - **STereoLithography** (.stl): Format most commonly used for 3D printing. Default coordinate system: LPS. Coordinate system (LPS/RAS) can be specified in header.
-- **Wavefront OBJ** (.obj): Default coordinate system: LPS. Coordinate system (LPS/RAS) can be specified in header. Texture image can be applied using "Texture model" module (in SlicerIGT extension). The non-standard [technique of saving vertex color as additinal values after coordinates](https://www.paulbourke.net/dataformats/obj/colour.html) is not supported - if vertex coloring is needed then convert to PLY, VTK, or VTP format using another software.
+- **Wavefront OBJ** (.obj): Default coordinate system: LPS. Coordinate system (LPS/RAS) can be specified in header. Texture image can be applied using "Texture model" module (in SlicerIGT extension). The non-standard [technique of saving vertex color as additional values after coordinates](https://web.archive.org/web/20220508010504/www.paulbourke.net/dataformats/obj/colour.html) is not supported - if vertex coloring is needed then convert to PLY, VTK, or VTP format using another software.
 - **Stanford Triangle Format** (.ply): Default coordinate system: LPS. Coordinate system (LPS/RAS) can be specified in header. Full color (RGB or RGBA) meshes can be read and written (color must be assigned to vertex data in `uchar` type properties named `red`, `green`, `blue`, and optional `alpha`). Texture image can be applied using "Texture model" module (in SlicerIGT extension).
 - **BYU** (.byu, .g; reading only): Coordinate system: LPS.
 - **UCD** (.ucd; reading only): Coordinate system: LPS.
 - **ITK meta** (.meta; reading only): Coordinate system: LPS.
 - [FreeSurfer extension](https://github.com/PerkLab/SlicerFreeSurfer):
   - **Freesurfer surfaces** (.orig, .inflated, .sphere, .white, .smoothwm, .pial; reading only)
-- [SlicerHeart extension](https://github.com/SlicerHeart/SlicerHeart:
+- [SlicerHeart extension](https://github.com/SlicerHeart/SlicerHeart):
   - **CARTO surface model** (.vtk; writing only): special .vtk polydata file format variant, which contains patient name and ID to allow import into CARTO cardiac electrophysiology mapping systems
 
 ### Segmentations
 
-- **Segmentation labelmap representation** (.seg.nrrd, .nrrd, .seg.nhdr, .nhdr, .nii, .nii.gz, .hdr): 3D volume (4D volume if there are overlapping segments) with [custom fields](https://apidocs.slicer.org/master/classvtkMRMLSegmentationStorageNode.html) specifying segment names, terminology, colors, etc.
-- **Segmentation closed surface representation** (.vtm): saved as VTK multiblock data set, contains [custom fields](https://apidocs.slicer.org/master/classvtkMRMLSegmentationStorageNode.html) specifying segment names, terminology, colors, etc.
+- **Segmentation labelmap representation** (.seg.nrrd, .nrrd, .seg.nhdr, .nhdr, .nii, .nii.gz, .hdr): 3D volume (4D volume if there are overlapping segments) with [custom fields](https://apidocs.slicer.org/main/classvtkMRMLSegmentationStorageNode.html) specifying segment names, terminology, colors, etc.
+- **Segmentation closed surface representation** (.vtm): saved as VTK multiblock data set, contains [custom fields](https://apidocs.slicer.org/main/classvtkMRMLSegmentationStorageNode.html) specifying segment names, terminology, colors, etc.
 - **Labelmap volume** (.nrrd, .nhdr, .nii, .nii.gz, .hdr): segment names can be defined by using a color table. To write segmentation in NIFTI formats, use Export to file feature or export the segmentation node to labelmap volume.
 - **Closed surface** (.stl, .obj): Single segment can be read from each file. Segmentation module's `Export to files` feature can be used to export directly to these formats.
 - SlicerOpenAnatomy extension:
@@ -125,9 +166,9 @@ Surface or volumetric meshes.
 
 ### Markups
 
-- **Markups JSON** (.mkp.json): point list, line, curve, closed curve, plane, etc. Default coordinate system: LPS. Coordinate system (LPS/RAS) can be specified in image header. JSON schema is available [here](https://github.com/Slicer/Slicer/tree/master/Modules/Loadable/Markups/Resources/Schema).
+- **Markups JSON** (.mkp.json): point list, line, curve, closed curve, plane, etc. Default coordinate system: LPS. Coordinate system (LPS/RAS) can be specified in image header. JSON schema is available [here](https://github.com/Slicer/Slicer/tree/main/Modules/Loadable/Markups/Resources/Schema).
 - **Markups CSV** (.fcsv): legacy file format for storing point list. Default coordinate system: LPS. Coordinate system (LPS/RAS) can be specified in image header.
-- **Annotation CSV** (.acsv): legacy file format for storing annotation ruler, ROI.
+- **Annotation CSV** (.acsv): legacy file format for storing markups line, ROI.
 
 ### Scenes
 
@@ -140,7 +181,9 @@ Surface or volumetric meshes.
 
 - **Text** (.txt, .xml., json)
 - **Table** (.csv, .tsv)
-- [**Color table**](https://www.slicer.org/wiki/Documentation/Nightly/Modules/Colors#File_format) (.ctbl, .txt)
+- Color tables:
+  - [**Slicer color table**](https://www.slicer.org/wiki/Documentation/Nightly/Modules/Colors#File_format) (.ctbl, .txt)
+  - ITK-Snap label description file (.txt, .label) (reading only) This can be used for loading segmentations that were created in ITK-Snap. The color table must be loaded in the scene first. Then, when the label image file is loaded then in `Add Data` window select `Segmentation` in the `Description` column and select the loaded color table in the `Color node` column.
 - [**Volume rendering properties**](../developer_guide/modules/volumerendering.md) (.vp)
 - [**Volume rendering shader properties**](../developer_guide/modules/volumerendering.md) (.sp)
 - **Terminology** (.term.json, .json): dictionary of standard DICOM or other terms

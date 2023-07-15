@@ -61,7 +61,7 @@ vtkMRMLCameraWidget::vtkMRMLCameraWidget()
   this->SetKeyboardEventTranslation(WidgetStateIdle, vtkEvent::ShiftModifier, 0, 0, "End", WidgetEventCameraRotateToPosterior);
 
   this->SetKeyboardEventTranslation(WidgetStateIdle, vtkEvent::NoModifier, 0, 0, "KP_3", WidgetEventCameraRotateToLeft);
-  this->SetKeyboardEventTranslation(WidgetStateIdle, vtkEvent::NoModifier, 0, 0, "Next", WidgetEventCameraRotateToLeft); //= PageDown
+  this->SetKeyboardEventTranslation(WidgetStateIdle, vtkEvent::NoModifier, 0, 0, "Next", WidgetEventCameraRotateToLeft); // PageDown key
   this->SetKeyboardEventTranslation(WidgetStateIdle, vtkEvent::ShiftModifier, 0, 0, "KP_3", WidgetEventCameraRotateToRight);
   this->SetKeyboardEventTranslation(WidgetStateIdle, vtkEvent::ShiftModifier, 0, 0, "Next", WidgetEventCameraRotateToRight);
 
@@ -113,11 +113,19 @@ vtkMRMLCameraWidget::vtkMRMLCameraWidget()
   // Rotate
   this->SetEventTranslationClickAndDrag(WidgetStateIdle, vtkCommand::LeftButtonPressEvent, vtkEvent::NoModifier,
     WidgetStateRotate, WidgetEventRotateStart, WidgetEventRotateEnd);
+  // Alt modifier to allow action during markup placement
+  this->SetEventTranslationClickAndDrag(WidgetStateIdle, vtkCommand::LeftButtonPressEvent, vtkEvent::AltModifier,
+    WidgetStateRotate, WidgetEventRotateStart, WidgetEventRotateEnd);
 
   // Pan
   this->SetEventTranslationClickAndDrag(WidgetStateIdle, vtkCommand::LeftButtonPressEvent, vtkEvent::ShiftModifier,
     WidgetStateTranslate, WidgetEventTranslateStart, WidgetEventTranslateEnd);
   this->SetEventTranslationClickAndDrag(WidgetStateIdle, vtkCommand::MiddleButtonPressEvent, vtkEvent::NoModifier,
+    WidgetStateTranslate, WidgetEventTranslateStart, WidgetEventTranslateEnd);
+  // Alt modifier to allow action during markup placement
+  this->SetEventTranslationClickAndDrag(WidgetStateIdle, vtkCommand::LeftButtonPressEvent, vtkEvent::AltModifier + vtkEvent::ShiftModifier,
+    WidgetStateTranslate, WidgetEventTranslateStart, WidgetEventTranslateEnd);
+  this->SetEventTranslationClickAndDrag(WidgetStateIdle, vtkCommand::MiddleButtonPressEvent, vtkEvent::AltModifier,
     WidgetStateTranslate, WidgetEventTranslateStart, WidgetEventTranslateEnd);
   // Touch translate
   this->SetEventTranslation(WidgetStateIdle, vtkCommand::StartPanEvent, vtkEvent::AnyModifier, WidgetEventTouchGestureStart);
@@ -128,6 +136,9 @@ vtkMRMLCameraWidget::vtkMRMLCameraWidget()
   this->SetEventTranslationClickAndDrag(WidgetStateIdle, vtkCommand::LeftButtonPressEvent, vtkEvent::ShiftModifier + vtkEvent::ControlModifier,
     WidgetStateScale, WidgetEventScaleStart, WidgetEventScaleEnd);
   this->SetEventTranslationClickAndDrag(WidgetStateIdle, vtkCommand::RightButtonPressEvent, vtkEvent::NoModifier,
+    WidgetStateScale, WidgetEventScaleStart, WidgetEventScaleEnd);
+  // Alt modifier to allow action during markup placement
+  this->SetEventTranslationClickAndDrag(WidgetStateIdle, vtkCommand::RightButtonPressEvent, vtkEvent::AltModifier,
     WidgetStateScale, WidgetEventScaleStart, WidgetEventScaleEnd);
   // Mousewheel zooms direction is chosen to be consistent with other applications (Ctrl-MouseWheelForward zooms in in PowerPoint),
   // and with Windows touchpad pinch-to-zoom (pinch to zoom in generates MouseWheelForward event).
@@ -150,7 +161,7 @@ vtkMRMLCameraWidget::vtkMRMLCameraWidget()
   this->SetEventTranslation(WidgetStateTouchGesture, vtkCommand::EndRotateEvent, vtkEvent::AnyModifier, WidgetEventTouchGestureEnd);
 
   // Set cursor position
-  this->SetEventTranslation(WidgetStateIdle, vtkCommand::MouseMoveEvent, vtkEvent::ShiftModifier, WidgetEventSetCrosshairPosition);
+  this->SetEventTranslation(WidgetStateIdle, vtkCommand::MouseMoveEvent, vtkEvent::ShiftModifier, WidgetEventSetCrosshairPositionBackground);
 
   // Context menu
   this->SetEventTranslation(WidgetStateIdle, vtkMRMLInteractionEventData::RightButtonClickEvent, vtkEvent::NoModifier, WidgetEventMenu);
@@ -193,13 +204,15 @@ bool vtkMRMLCameraWidget::CanProcessInteractionEvent(vtkMRMLInteractionEventData
   unsigned long widgetEvent = this->TranslateInteractionEventToWidgetEvent(eventData);
   if (widgetEvent == WidgetEventNone)
     {
-    return false;
+    // If this event is not recognized then give a chance to process it as a click event.
+    return this->CanProcessButtonClickEvent(eventData, distance2);
     }
 
   // If we are currently dragging a point then we interact everywhere
   if (this->WidgetState == WidgetStateTranslate
     || this->WidgetState == WidgetStateRotate
     || this->WidgetState == WidgetStateScale
+    || this->WidgetState == WidgetStateMoveCrosshair
     || this->WidgetState == WidgetStateSpin)
     {
     distance2 = 0.0;
@@ -210,11 +223,9 @@ bool vtkMRMLCameraWidget::CanProcessInteractionEvent(vtkMRMLInteractionEventData
   // we allow other widgets to perform actions at the same time.
   // For example, this allows markup preview to remain visible in place mode while adjusting slice position
   // with shift + mouse-move.
-  if (this->WidgetState == WidgetStateIdle
-    && eventData->GetType() == vtkCommand::MouseMoveEvent
-    && eventData->GetModifiers() & vtkEvent::ShiftModifier)
+  if (widgetEvent == WidgetEventSetCrosshairPositionBackground)
     {
-    this->ProcessSetCrosshair(eventData);
+    this->ProcessSetCrosshairBackground(eventData);
     }
 
   distance2 = 1e10; // we can process this event but we let more specific widgets to claim it (if they are closer)
@@ -376,6 +387,13 @@ bool vtkMRMLCameraWidget::ProcessInteractionEvent(vtkMRMLInteractionEventData* e
     case WidgetEventScaleEnd:
       processedEvent = this->ProcessEndMouseDrag(eventData);
       break;
+    case WidgetEventMoveCrosshairStart:
+      this->SetWidgetState(WidgetStateMoveCrosshair);
+      processedEvent = this->ProcessStartMouseDrag(eventData);
+      break;
+    case WidgetEventMoveCrosshairEnd:
+      processedEvent = this->ProcessEndMouseDrag(eventData);
+      break;
     case WidgetEventSpinStart:
       this->SetWidgetState(WidgetStateSpin);
       processedEvent = this->ProcessStartMouseDrag(eventData);
@@ -403,7 +421,7 @@ bool vtkMRMLCameraWidget::ProcessInteractionEvent(vtkMRMLInteractionEventData* e
       break;
 
     case WidgetEventSetCrosshairPosition:
-      // Event is handled in CanProcessInteractionEvent
+      this->ProcessSetCrosshair(eventData);
       break;
 
     case WidgetEventMaximizeView:
@@ -445,6 +463,9 @@ bool vtkMRMLCameraWidget::ProcessMouseMove(vtkMRMLInteractionEventData* eventDat
       break;
     case WidgetStateScale:
       this->ProcessScale(eventData);
+      break;
+    case WidgetStateMoveCrosshair:
+      this->ProcessSetCrosshair(eventData);
       break;
     case WidgetStateSpin:
       this->ProcessSpin(eventData);
@@ -542,14 +563,19 @@ vtkMRMLCameraNode* vtkMRMLCameraWidget::GetCameraNode()
 }
 
 //----------------------------------------------------------------------------
-bool vtkMRMLCameraWidget::ProcessSetCrosshair(vtkMRMLInteractionEventData* eventData)
+bool vtkMRMLCameraWidget::ProcessSetCrosshairBackground(vtkMRMLInteractionEventData* eventData)
 {
   if (!this->ModifierKeyPressedSinceLastClickAndDrag)
     {
     // this event was caused by a "stuck" modifier key
     return false;
     }
+  return this->ProcessSetCrosshair(eventData);
+}
 
+//----------------------------------------------------------------------------
+bool vtkMRMLCameraWidget::ProcessSetCrosshair(vtkMRMLInteractionEventData* eventData)
+{
   if (!this->GetCameraNode() || !this->GetCameraNode()->GetScene())
     {
     return false;
@@ -1050,11 +1076,13 @@ void vtkMRMLCameraWidget::CameraModifyEnd(bool wasModified, bool updateClippingR
 //----------------------------------------------------------------------------
 void vtkMRMLCameraWidget::SaveStateForUndo()
 {
-  if (!this->GetCameraNode() || !this->GetCameraNode()->GetScene())
+  vtkMRMLCameraNode* cameraNode = this->GetCameraNode();
+  vtkMRMLScene* mrmlScene = cameraNode ? cameraNode->GetScene() : nullptr;
+  if (!mrmlScene || !cameraNode || !cameraNode->GetUndoEnabled())
     {
     return;
     }
-  this->GetCameraNode()->GetScene()->SaveStateForUndo();
+  mrmlScene->SaveStateForUndo();
 }
 
 //-------------------------------------------------------------------------
@@ -1083,9 +1111,13 @@ bool vtkMRMLCameraWidget::ProcessWidgetMenu(vtkMRMLInteractionEventData* eventDa
   vtkNew<vtkMRMLInteractionEventData> pickEventData;
   pickEventData->SetType(vtkMRMLInteractionNode::ShowViewContextMenuEvent);
   pickEventData->SetViewNode(viewNode);
-  if (pickEventData->IsDisplayPositionValid())
+  if (eventData->IsDisplayPositionValid())
     {
     pickEventData->SetDisplayPosition(eventData->GetDisplayPosition());
+    }
+  if (eventData->IsWorldPositionValid())
+    {
+    pickEventData->SetWorldPosition(eventData->GetWorldPosition(), eventData->IsWorldPositionAccurate());
     }
   interactionNode->ShowViewContextMenu(pickEventData);
   return true;
@@ -1113,11 +1145,11 @@ bool vtkMRMLCameraWidget::ProcessMaximizeView(vtkMRMLInteractionEventData* event
     }
   if (isMaximized)
     {
-    layoutNode->SetMaximizedViewNode(nullptr);
+    layoutNode->RemoveMaximizedViewNode(viewNode);
     }
   else
     {
-    layoutNode->SetMaximizedViewNode(viewNode);
+    layoutNode->AddMaximizedViewNode(viewNode);
     }
 
   // Maximize/restore takes away the focus without resetting

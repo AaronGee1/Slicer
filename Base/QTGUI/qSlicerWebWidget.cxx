@@ -114,12 +114,13 @@ void qSlicerWebWidgetPrivate::init()
 
   this->PythonProxy = new qSlicerWebPythonProxy(q);
   QWebEngineProfile* profile = QWebEngineProfile::defaultProfile();
-  this->initializeWebEngineProfile(profile);
 
   this->WebEnginePage = new qSlicerWebEnginePage(profile, this->WebView);
   this->WebEnginePage->JavaScriptConsoleMessageLoggingEnabled = developerModeEnabled;
   this->WebEnginePage->WebWidget = q;
   this->WebView->setPage(this->WebEnginePage);
+
+  this->initializeWebEngineProfile(profile);
 
   this->WebChannel = new QWebChannel(this->WebView->page());
   this->initializeWebChannel(this->WebChannel);
@@ -196,7 +197,7 @@ void qSlicerWebWidgetPrivate::initializeWebEngineProfile(QWebEngineProfile* prof
     return;
     }
 
-  if (!profile->scripts()->findScript("qwebchannel_appended.js").isNull())
+  if (!this->WebEnginePage->scripts().findScript("qwebchannel_appended.js").isNull())
     {
     // profile is already initialized
     return;
@@ -218,7 +219,7 @@ void qSlicerWebWidgetPrivate::initializeWebEngineProfile(QWebEngineProfile* prof
     script.setWorldId(QWebEngineScript::MainWorld);
     script.setInjectionPoint(QWebEngineScript::DocumentCreation);
     script.setRunsOnSubFrames(false);
-    profile->scripts()->insert(script);
+    this->WebEnginePage->scripts().insert(script);
     }
 
   // setup default download handler shared across all widgets
@@ -238,6 +239,14 @@ void qSlicerWebWidgetPrivate::setDocumentWebkitHidden(bool value)
 void qSlicerWebWidgetPrivate::handleDownload(QWebEngineDownloadItem* download)
 {
   Q_Q(qSlicerWebWidget);
+
+  if (this->WebEnginePage != download->page())
+    {
+    // Since the download request is emitted by the default profile observed by
+    // all web widget instances, we ignore the request if it does not originate
+    // from the page associated with this web widget instance.
+    return;
+    }
 
   qSlicerWebDownloadWidget *downloader = new qSlicerWebDownloadWidget(q);
   downloader->setAttribute(Qt::WA_DeleteOnClose);
@@ -377,16 +386,16 @@ void qSlicerWebWidget::onDownloadProgress(qint64 bytesReceived, qint64 bytesTota
   QString unit;
   if (speed < 1024)
     {
-    unit = "bytes/sec";
+    unit = tr("bytes/sec");
     }
   else if (speed < 1024*1024) {
     speed /= 1024;
-    unit = "kB/s";
+    unit = tr("kB/s");
     }
   else
     {
     speed /= 1024*1024;
-    unit = "MB/s";
+    unit = tr("MB/s");
     }
 
   d->ProgressBar->setFormat(QString("%p% (%1 %2)").arg(speed, 3, 'f', 1).arg(unit));

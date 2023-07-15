@@ -1,13 +1,12 @@
 # Volume rendering
 
 ## Key classes
-- [vtkMRMLVolumeRenderingDisplayNode](https://apidocs.slicer.org/master/classvtkMRMLVolumeRenderingDisplayNode.html) controls the volume rendering properties. Each volume rendering technique has its own subclass.
-- [vtkSlicerVolumeRenderingLogic](https://apidocs.slicer.org/master/classvtkSlicerVolumeRenderingLogic.html) contains utility functions
-- [vtkMRMLScalarVolumeNode](https://apidocs.slicer.org/master/classvtkMRMLScalarVolumeNode.html) contains the volume itself
-- [vtkMRMLVolumePropertyNode](https://apidocs.slicer.org/master/classvtkMRMLVolumePropertyNode.html) points to the transfer functions
-- [vtkMRMLMarkupsROINode](https://apidocs.slicer.org/master/classvtkMRMLMarkupsROINode.html) controls the clipping planes
-- [vtkMRMLAnnotationROINode](https://apidocs.slicer.org/master/classvtkMRMLAnnotationROINode.html) controls the clipping planes (legacy, use vtkMRMLMarkupsROINode instead)
-- [vtkMRMLVolumeRenderingDisplayableManager](https://apidocs.slicer.org/master/classvtkMRMLVolumeRenderingDisplayableManager.html) responsible for adding VTK actors to the renderers
+- [vtkMRMLVolumeRenderingDisplayNode](https://apidocs.slicer.org/main/classvtkMRMLVolumeRenderingDisplayNode.html) controls the volume rendering properties. Each volume rendering technique has its own subclass.
+- [vtkSlicerVolumeRenderingLogic](https://apidocs.slicer.org/main/classvtkSlicerVolumeRenderingLogic.html) contains utility functions
+- [vtkMRMLScalarVolumeNode](https://apidocs.slicer.org/main/classvtkMRMLScalarVolumeNode.html) contains the volume itself
+- [vtkMRMLVolumePropertyNode](https://apidocs.slicer.org/main/classvtkMRMLVolumePropertyNode.html) points to the transfer functions
+- [vtkMRMLMarkupsROINode](https://apidocs.slicer.org/main/classvtkMRMLMarkupsROINode.html) controls the clipping planes
+- [vtkMRMLVolumeRenderingDisplayableManager](https://apidocs.slicer.org/main/classvtkMRMLVolumeRenderingDisplayableManager.html) responsible for adding VTK actors to the renderers
 
 ## Format of Volume Property (.vp) file
 
@@ -30,3 +29,14 @@ Example:
 ## Examples
 
 Examples for common operations on transform are provided in the [script repository](../script_repository.md#volumes).
+
+## Volume rendering presets
+
+Volume rendering presets that are bundled in Slicer core are specified in a preset file and corresponding icon is stored as an application resource.
+
+To add a new volume rendering preset:
+- Add a new entry to [presets.xml](https://github.com/Slicer/Slicer/blob/main/Modules/Loadable/VolumeRendering/Resources/presets.xml)
+- Add a corresponding icon of 128x100 pixels into [presets icons folder](https://github.com/Slicer/Slicer/tree/main/Modules/Loadable/VolumeRendering/Resources/Icons).
+- Add the icon to [qSlicerVolumeRenderingModule.qrc](https://github.com/Slicer/Slicer/blob/main/Modules/Loadable/VolumeRendering/Resources/qSlicerVolumeRenderingModule.qrc)
+
+Presets can be also added at runtime - see [example in the script repository](/developer_guide/script_repository.md#register-custom-volume-rendering-presets). In this case, icons are loaded from the preset scene file.

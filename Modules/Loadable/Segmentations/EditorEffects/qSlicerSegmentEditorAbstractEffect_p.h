@@ -84,14 +84,14 @@ public:
   /// Populating the frame is possible using the \sa addOptionsWidget method from the base classes
   QFrame* OptionsFrame;
 
-  /// Aligned master volume is a copy of image in master volume node
+  /// Aligned source volume is a copy of image in source volume node
   /// resampled into the reference image geometry of the segmentation.
-  /// If the master volume geometry is the same as the reference image geometry
+  /// If the source volume geometry is the same as the reference image geometry
   /// then only a shallow copy is performed.
-  vtkWeakPointer<vtkOrientedImageData> AlignedMasterVolume;
+  vtkWeakPointer<vtkOrientedImageData> AlignedSourceVolume;
 
   /// Active labelmap for editing. Mainly needed because the segment binary labelmaps are shrunk
-  /// to the smallest possible extent, but the user wants to draw on the whole master volume.
+  /// to the smallest possible extent, but the user wants to draw on the whole source volume.
   /// It also allows modifying a segment by adding/removing regions (and performing inverse
   /// of that on all other segments).
   vtkWeakPointer<vtkOrientedImageData> ModifierLabelmap;

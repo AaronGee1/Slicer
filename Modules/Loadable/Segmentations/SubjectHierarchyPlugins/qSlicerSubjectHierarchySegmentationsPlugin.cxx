@@ -107,37 +107,37 @@ void qSlicerSubjectHierarchySegmentationsPluginPrivate::init()
 {
   Q_Q(qSlicerSubjectHierarchySegmentationsPlugin);
 
-  this->ExportBinaryLabelmapAction = new QAction("Export visible segments to binary labelmap",q);
+  this->ExportBinaryLabelmapAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("Export visible segments to binary labelmap"), q);
   QObject::connect(this->ExportBinaryLabelmapAction, SIGNAL(triggered()), q, SLOT(exportToBinaryLabelmap()));
 
-  this->ExportClosedSurfaceAction = new QAction("Export visible segments to models",q);
+  this->ExportClosedSurfaceAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("Export visible segments to models"), q);
   QObject::connect(this->ExportClosedSurfaceAction, SIGNAL(triggered()), q, SLOT(exportToClosedSurface()));
 
-  this->ConvertLabelmapToSegmentationAction = new QAction("Convert labelmap to segmentation node",q);
+  this->ConvertLabelmapToSegmentationAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("Convert labelmap to segmentation node") ,q);
   QObject::connect(this->ConvertLabelmapToSegmentationAction, SIGNAL(triggered()), q, SLOT(convertLabelmapToSegmentation()));
 
-  this->ConvertModelToSegmentationAction = new QAction("Convert model to segmentation node",q);
+  this->ConvertModelToSegmentationAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("Convert model to segmentation node"), q);
   QObject::connect(this->ConvertModelToSegmentationAction, SIGNAL(triggered()), q, SLOT(convertModelToSegmentation()));
 
-  this->ConvertModelsToSegmentationAction = new QAction("Convert models to segmentation node",q);
+  this->ConvertModelsToSegmentationAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("Convert models to segmentation node"), q);
   QObject::connect(this->ConvertModelsToSegmentationAction, SIGNAL(triggered()), q, SLOT(convertModelsToSegmentation()));
 
-  this->CreateBinaryLabelmapRepresentationAction = new QAction("Create binary labelmap representation", q);
+  this->CreateBinaryLabelmapRepresentationAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("Create binary labelmap representation"), q);
   QObject::connect(this->CreateBinaryLabelmapRepresentationAction, SIGNAL(triggered()), q, SLOT(createBinaryLabelmapRepresentation()));
-  this->CreateClosedSurfaceRepresentationAction = new QAction("Create closed surface representation", q);
+  this->CreateClosedSurfaceRepresentationAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("Create closed surface representation"), q);
   QObject::connect(this->CreateClosedSurfaceRepresentationAction, SIGNAL(triggered()), q, SLOT(createClosedSurfaceRepresentation()));
 
-  this->RemoveBinaryLabelmapRepresentationAction = new QAction("Remove binary labelmap representation", q);
+  this->RemoveBinaryLabelmapRepresentationAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("Remove binary labelmap representation"), q);
   QObject::connect(this->RemoveBinaryLabelmapRepresentationAction, SIGNAL(triggered()), q, SLOT(removeBinaryLabelmapRepresentation()));
-  this->RemoveClosedSurfaceRepresentationAction = new QAction("Remove closed surface representation", q);
+  this->RemoveClosedSurfaceRepresentationAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("Remove closed surface representation"), q);
   QObject::connect(this->RemoveClosedSurfaceRepresentationAction, SIGNAL(triggered()), q, SLOT(removeClosedSurfaceRepresentation()));
 
-  this->Toggle2DFillVisibilityAction = new QAction("2D fill visibility",q);
+  this->Toggle2DFillVisibilityAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("2D fill visibility"),q);
   QObject::connect(this->Toggle2DFillVisibilityAction, SIGNAL(toggled(bool)), q, SLOT(toggle2DFillVisibility(bool)));
   this->Toggle2DFillVisibilityAction->setCheckable(true);
   this->Toggle2DFillVisibilityAction->setChecked(false);
 
-  this->Toggle2DOutlineVisibilityAction = new QAction("2D outline visibility",q);
+  this->Toggle2DOutlineVisibilityAction = new QAction(qSlicerSubjectHierarchySegmentationsPlugin::tr("2D outline visibility"), q);
   QObject::connect(this->Toggle2DOutlineVisibilityAction, SIGNAL(toggled(bool)), q, SLOT(toggle2DOutlineVisibility(bool)));
   this->Toggle2DOutlineVisibilityAction->setCheckable(true);
   this->Toggle2DOutlineVisibilityAction->setChecked(false);
@@ -154,7 +154,7 @@ qSlicerSubjectHierarchySegmentationsPlugin::qSlicerSubjectHierarchySegmentations
  : Superclass(parent)
  , d_ptr( new qSlicerSubjectHierarchySegmentationsPluginPrivate(*this) )
 {
-  this->m_Name = QString("Segmentations");
+  this->m_Name = QString(/*no tr*/"Segmentations");
 
   Q_D(qSlicerSubjectHierarchySegmentationsPlugin);
   d->init();
@@ -278,30 +278,30 @@ bool qSlicerSubjectHierarchySegmentationsPlugin::reparentItemInsideSubjectHierar
   // Notify user if failed to import
   if (!success)
     {
-    // Probably master representation has to be changed
-    QString message = QString("Cannot convert source master representation '%1' into target master '%2',"
+    // Probably source representation has to be changed
+    QString message = tr("Cannot convert source representation '%1' into target source '%2',"
       "thus unable to import node '%3' to segmentation '%4'.\n\n"
-      "Would you like to change the master representation of '%4' to '%1'?\n\n"
+      "Would you like to change the source representation of '%4' to '%1'?\n\n"
       "Note: This may result in unwanted data loss in %4.")
       .arg(importedRepresentationName.c_str())
-      .arg(segmentationNode->GetSegmentation()->GetMasterRepresentationName().c_str())
+      .arg(segmentationNode->GetSegmentation()->GetSourceRepresentationName().c_str())
       .arg(labelmapNode ? labelmapNode->GetName() : modelNode->GetName()).arg(segmentationNode->GetName());
     QMessageBox::StandardButton answer =
       QMessageBox::question(nullptr, tr("Failed to import data to segmentation"), message,
       QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
     if (answer == QMessageBox::Yes)
       {
-      // Convert target segmentation to master representation of source segmentation
+      // Convert target segmentation to source representation of source segmentation
       bool successfulConversion = segmentationNode->GetSegmentation()->CreateRepresentation(importedRepresentationName);
       if (!successfulConversion)
         {
-        QString message = QString("Failed to convert %1 to %2").arg(segmentationNode->GetName()).arg(importedRepresentationName.c_str());
+        QString message = tr("Failed to convert %1 to %2").arg(segmentationNode->GetName()).arg(importedRepresentationName.c_str());
         QMessageBox::warning(nullptr, tr("Conversion failed"), message);
         return false;
         }
 
-      // Change master representation of target to that of source
-      segmentationNode->GetSegmentation()->SetMasterRepresentationName(importedRepresentationName);
+      // Change source representation of target to that of source
+      segmentationNode->GetSegmentation()->SetSourceRepresentationName(importedRepresentationName);
 
       // Retry reparenting
       return this->reparentItemInsideSubjectHierarchy(itemID, parentItemID);
@@ -352,13 +352,13 @@ QString qSlicerSubjectHierarchySegmentationsPlugin::tooltip(vtkIdType itemID)con
   if (itemID == vtkMRMLSubjectHierarchyNode::INVALID_ITEM_ID)
     {
     qCritical() << Q_FUNC_INFO << ": Invalid input item";
-    return QString("Invalid");
+    return tr("Invalid");
     }
   vtkMRMLSubjectHierarchyNode* shNode = qSlicerSubjectHierarchyPluginHandler::instance()->subjectHierarchyNode();
   if (!shNode)
     {
     qCritical() << Q_FUNC_INFO << ": Failed to access subject hierarchy node";
-    return QString("Invalid");
+    return tr("Invalid");
     }
 
   // Get basic tooltip from abstract plugin
@@ -375,10 +375,12 @@ QString qSlicerSubjectHierarchySegmentationsPlugin::tooltip(vtkIdType itemID)con
   vtkSegmentation* segmentation = segmentationNode->GetSegmentation();
   std::vector<std::string> containedRepresentationNames;
   segmentation->GetContainedRepresentationNames(containedRepresentationNames);
-  tooltipString.append( QString(" (Representations: ") );
+  tooltipString.append(tr(" (Representations: "));
   if (containedRepresentationNames.empty())
     {
-    tooltipString.append( QString("None!)") );
+    tooltipString.append(
+      tr("None)")  //: used when there are no representations defined for the segmentation
+    );
     }
   else
     {
@@ -391,11 +393,11 @@ QString qSlicerSubjectHierarchySegmentationsPlugin::tooltip(vtkIdType itemID)con
     tooltipString = tooltipString.left(tooltipString.length()-2).append(")");
     }
 
-  // Master representation
-  tooltipString.append(QString(" (Master representation: %1)").arg(segmentation->GetMasterRepresentationName().c_str()));
+  // Source representation
+  tooltipString.append(tr(" (Source representation: %1)").arg(segmentation->GetSourceRepresentationName().c_str()));  //: parameter is the representation name
 
   // Number of segments
-  tooltipString.append(QString(" (Number of segments: %1)").arg(segmentation->GetNumberOfSegments()));
+  tooltipString.append(tr(" (Number of segments: %1)").arg(segmentation->GetNumberOfSegments()));
 
   return tooltipString;
 }
@@ -559,7 +561,7 @@ void qSlicerSubjectHierarchySegmentationsPlugin::showContextMenuActionsForItem(v
     if (segmentationNode && segmentationNode->GetSegmentation())
       {
       vtkSegmentation* segmentation = segmentationNode->GetSegmentation();
-      if (segmentation->GetMasterRepresentationName() != vtkSegmentationConverter::GetSegmentationBinaryLabelmapRepresentationName())
+      if (segmentation->GetSourceRepresentationName() != vtkSegmentationConverter::GetSegmentationBinaryLabelmapRepresentationName())
         {
         if (segmentation->ContainsRepresentation(vtkSegmentationConverter::GetSegmentationBinaryLabelmapRepresentationName()))
           {
@@ -570,7 +572,7 @@ void qSlicerSubjectHierarchySegmentationsPlugin::showContextMenuActionsForItem(v
         d->CreateBinaryLabelmapRepresentationAction->setVisible(true);
           }
         }
-      if (segmentation->GetMasterRepresentationName() != vtkSegmentationConverter::GetSegmentationClosedSurfaceRepresentationName())
+      if (segmentation->GetSourceRepresentationName() != vtkSegmentationConverter::GetSegmentationClosedSurfaceRepresentationName())
         {
         if (segmentation->ContainsRepresentation(vtkSegmentationConverter::GetSegmentationClosedSurfaceRepresentationName()))
           {
@@ -997,7 +999,7 @@ void qSlicerSubjectHierarchySegmentationsPlugin::exportToBinaryLabelmap()
     vtkSegmentationConverter::GetSegmentationBinaryLabelmapRepresentationName());
   if (!success)
     {
-    QString message = QString( "Failed to create binary labelmap representation for segmentation %1 using default"
+    QString message = tr( "Failed to create binary labelmap representation for segmentation %1 using default"
       "conversion parameters!\n\nPlease visit the Segmentation module and try the advanced create representation function.").
       arg(segmentationNode->GetName() );
     qCritical() << Q_FUNC_INFO << ": " << message;
@@ -1021,7 +1023,8 @@ void qSlicerSubjectHierarchySegmentationsPlugin::exportToBinaryLabelmap()
     {
     exportedNodeName += "-" + std::string(segmentationNode->GetSegmentation()->GetSegment(segmentIDs[0])->GetName());
     }
-  exportedNodeName += "-label";
+  exportedNodeName += tr("-label")  //: suffix used when exporting segmentation to labelmap
+    .toStdString();
   exportedNodeName = segmentationNode->GetScene()->GetUniqueNameByString(exportedNodeName.c_str());
   newLabelmapNode->SetName(exportedNodeName.c_str());
 
@@ -1036,7 +1039,7 @@ void qSlicerSubjectHierarchySegmentationsPlugin::exportToBinaryLabelmap()
   QApplication::restoreOverrideCursor();
   if (!success)
     {
-    QString message = QString("Failed to export segments from segmentation %1 to labelmap node!\n\n"
+    QString message = tr("Failed to export segments from segmentation %1 to labelmap node!\n\n"
       "Most probably the segment cannot be converted into binary labelmap representation").
       arg(segmentationNode->GetName());
     qCritical() << Q_FUNC_INFO << ": " << message;
@@ -1061,7 +1064,7 @@ void qSlicerSubjectHierarchySegmentationsPlugin::exportToClosedSurface()
     vtkSegmentationConverter::GetSegmentationClosedSurfaceRepresentationName());
   if (!success)
     {
-    QString message = QString( "Failed to create closed surface representation for segmentation %1 using default"
+    QString message = tr( "Failed to create closed surface representation for segmentation %1 using default"
       "conversion parameters!\n\nPlease visit the Segmentation module and try the advanced create representation function.").
       arg(segmentationNode->GetName() );
     qCritical() << Q_FUNC_INFO << ": " << message;
@@ -1070,12 +1073,13 @@ void qSlicerSubjectHierarchySegmentationsPlugin::exportToClosedSurface()
     }
 
   // Create new folder item
-  std::string newFolderName = std::string(segmentationNode->GetName()) + "-models";
+  std::string newFolderName = std::string(segmentationNode->GetName()) + tr("-models")  //: suffix used when exporting segmentation to model
+    .toStdString();
   vtkMRMLSubjectHierarchyNode* shNode = qSlicerSubjectHierarchyPluginHandler::instance()->subjectHierarchyNode();
   // Since segmentationNode is not nullptr, we can be sure that shNode is valid.
-  vtkIdType currentItemID = qSlicerSubjectHierarchyPluginHandler::instance()->currentItem();
+  vtkIdType segmentationItemID = shNode->GetItemByDataNode(segmentationNode);
   vtkIdType folderItemID = shNode->CreateFolderItem(
-    shNode->GetItemParent(currentItemID),
+    shNode->GetItemParent(segmentationItemID),
     shNode->GenerateUniqueItemName(newFolderName) );
 
   // Export visible segments into a models
@@ -1085,7 +1089,7 @@ void qSlicerSubjectHierarchySegmentationsPlugin::exportToClosedSurface()
   QApplication::restoreOverrideCursor();
   if (!success)
     {
-    QString message = QString("Failed to export segments from segmentation %1 to models!\n\n"
+    QString message = tr("Failed to export segments from segmentation %1 to models!\n\n"
       "Most probably the segment cannot be converted into closed surface representation.").
       arg(segmentationNode->GetName());
     qCritical() << Q_FUNC_INFO << ": " << message;
@@ -1189,7 +1193,7 @@ void qSlicerSubjectHierarchySegmentationsPlugin::convertModelsToSegmentation()
     shNode->GetScene()->AddNode(newNode));
   std::string newSegmentationNodeName = shNode->GetItemName(currentItemID) + "-segmentation";
   newSegmentationNode->SetName(newSegmentationNodeName.c_str());
-  newSegmentationNode->SetMasterRepresentationToClosedSurface();
+  newSegmentationNode->SetSourceRepresentationToClosedSurface();
 
   if (!vtkSlicerSegmentationsModuleLogic::ImportModelsToSegmentationNode(currentItemID, newSegmentationNode))
     {
@@ -1324,7 +1328,7 @@ void qSlicerSubjectHierarchySegmentationsPlugin::updateRepresentation(const QStr
     bool success = segmentationNode->GetSegmentation()->CreateRepresentation(representationName.toStdString());
     if (!success)
       {
-      QString message = QString("Failed to create %1 representation for segmentation %2 using default"
+      QString message = tr("Failed to create %1 representation for segmentation %2 using default"
         "conversion parameters!\n\nPlease visit the Segmentation module and try the advanced create representation function.")
        .arg(representationName)
        .arg(segmentationNode->GetName());

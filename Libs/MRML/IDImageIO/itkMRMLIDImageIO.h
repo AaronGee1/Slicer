@@ -29,7 +29,7 @@ class vtkMRMLNode;
 namespace itk
 {
 /** \class MRMLIDImageIO
- * \brief ImageIO object for reading and writing imaegs from a MRML scene
+ * \brief ImageIO object for reading and writing images from a MRML scene
  *
  * MRMLIDImageIO is an ImageIO object that allows you to
  * retrieve/store an image in a MRML node using a standard ITK
@@ -48,7 +48,7 @@ namespace itk
  *     <code>slicer:\<scene id\>#\<node id\></code>                    - local slicer
  *     <code>slicer://\<hostname\>/\<scene id\>#\<node id\></code>     - remote slicer
  *
- * This code was written on the Massachusettes Turnpike with extreme
+ * This code was written on the Massachusetts Turnpike with extreme
  * glare on the LCD.
  */
 class MRMLIDImageIO_EXPORT MRMLIDImageIO : public ImageIOBase
@@ -140,4 +140,4 @@ private:
 
 
 } /// end namespace itk
-#endif /// itkMRMLIDImageIO_h
+#endif

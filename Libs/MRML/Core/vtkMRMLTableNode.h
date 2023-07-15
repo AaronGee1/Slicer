@@ -91,8 +91,8 @@ public:
   /// - columnName: name of the data table column that properties are defined for  (required)
   ///   Column name \<default\> is reserved for defining default properties for new columns.
   /// - type: data type of the column. Supported types: string, double, float, int, unsigned int, bit,
-  ///   short, unsigned short, long, unsigned long, char, signed char, unsigned char, long long, unsigned long long
-  ///   __int64, unsigned __int64, idtype. Default: string.
+  ///   short, unsigned short, long, unsigned long, char, signed char, unsigned char, long long, unsigned long long, idtype.
+  ///   Default: string.
   /// - nullValue: value to be used when a value is not specified (new table row is added, blank string is entered, etc)
   /// - longName: full human-readable name of the column
   /// - description: human-readable detailed description of the column
@@ -202,7 +202,7 @@ public:
 
   ///
   /// Set a full human-readable name of a column.
-  /// When there is no space constraings, the full name of the column may` displayed
+  /// When there is no space constraints, the full name of the column may` displayed
   /// instead/in addition to columnName to identify a column.
   void SetColumnLongName(const std::string& columnName, const std::string& description);
   std::string GetColumnLongName(const std::string& columnName);

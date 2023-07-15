@@ -14,12 +14,17 @@ set(MODULE_PYTHON_SCRIPTS
 set(MODULE_PYTHON_RESOURCES
   Resources/Icons/WebServer.svg  # source: Google Material Icon set (api_black_24dp.svg)
   Resources/docroot/index.html
+  Resources/docroot/browse.html
   Resources/docroot/favicon.ico
+  Resources/docroot/package.json
   Resources/docroot/images/3DSlicer-DesktopIcon.png
   Resources/docroot/ServerTests/glMatrix-0.9.5.min.js
   Resources/docroot/ServerTests/index.html
   Resources/docroot/ServerTests/threeDCube.html
   Resources/docroot/ServerTests/timecube.html
+  Resources/docroot/ServerTests/threejs.html
+  Resources/docroot/ServerTests/threejs.css
+  Resources/docroot/ServerTests/modelviewer.html
   Resources/docroot/ServerTests/webgl-utils.js
   Resources/docroot/stylesheets/application.css
   )

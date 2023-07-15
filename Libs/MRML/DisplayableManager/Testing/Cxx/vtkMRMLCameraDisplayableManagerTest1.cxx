@@ -624,7 +624,7 @@ int vtkMRMLCameraDisplayableManagerTest1(int argc, char* argv[])
   vtkStdString savedScene = testHelper->GetTempDirectory();
   savedScene += "/vtkMRMLCameraDisplayableManagerTest1_saved.mrml";
   scene->SetVersion("Slicer4.4.0"); // Force scene version to be the same as in the baseline scene file
-  if (!scene->Commit(savedScene))
+  if (!scene->Commit(savedScene.c_str()))
     {
     std::cerr << "Failed to save current scene into: " << savedScene << std::endl;
     return EXIT_FAILURE;
@@ -661,7 +661,7 @@ int vtkMRMLCameraDisplayableManagerTest1(int argc, char* argv[])
     }
 
   // Import baseline scene
-  scene->SetURL(baselineScene);
+  scene->SetURL(baselineScene.c_str());
   if (scene->GetURL() != baselineScene)
     {
     std::cerr << "Failed to set URL: " << baselineScene << std::endl;
@@ -715,11 +715,7 @@ int vtkMRMLCameraDisplayableManagerTest1(int argc, char* argv[])
     {
     vtkNew<vtkWindowToImageFilter> windowToImageFilter;
     windowToImageFilter->SetInput(rw.GetPointer());
-#if VTK_MAJOR_VERSION >= 9 || (VTK_MAJOR_VERSION >= 8 && VTK_MINOR_VERSION >= 1)
     windowToImageFilter->SetScale(1, 1); //set the resolution of the output image
-#else
-    windowToImageFilter->SetMagnification(1); //set the resolution of the output image
-#endif
     windowToImageFilter->Update();
 
     vtkStdString screenshootFilename = testHelper->GetDataRoot();

@@ -175,9 +175,14 @@ void vtkMRMLMarkupsNode::CopyContent(vtkMRMLNode* aSource, bool deepCopy/*=true*
 
   vtkMRMLCopyBeginMacro(aSource);
   vtkMRMLCopyBooleanMacro(Locked);
+  vtkMRMLCopyBooleanMacro(FixedNumberOfControlPoints);
   vtkMRMLCopyStdStringMacro(ControlPointLabelFormat);
   vtkMRMLCopyOwnedMatrix4x4Macro(InteractionHandleToWorldMatrix);
   vtkMRMLCopyEndMacro();
+
+  // No public set macros, therefore cannot use copy macros
+  this->RequiredNumberOfControlPoints = source->RequiredNumberOfControlPoints;
+  this->MaximumNumberOfControlPoints = source->MaximumNumberOfControlPoints;
 
   this->TextList->DeepCopy(source->TextList);
 
@@ -206,6 +211,10 @@ void vtkMRMLMarkupsNode::CopyContent(vtkMRMLNode* aSource, bool deepCopy/*=true*
     }
 
   // Copy control points
+  // Disable wasFixedNumberOfControlPoints while copying points
+  // (it would prevent removing and recreating points).
+  int wasFixedNumberOfControlPoints = this->FixedNumberOfControlPoints;
+  this->FixedNumberOfControlPoints = false;
   this->CurveInputPoly->GetPoints()->Reset();
   this->RemoveAllControlPoints();
   int numMarkups = source->GetNumberOfControlPoints();
@@ -216,6 +225,7 @@ void vtkMRMLMarkupsNode::CopyContent(vtkMRMLNode* aSource, bool deepCopy/*=true*
     (*controlPointCopy) = (*controlPoint);
     this->AddControlPoint(controlPointCopy, false);
     }
+  this->FixedNumberOfControlPoints = wasFixedNumberOfControlPoints;
 
   // Copy measurements
   this->RemoveAllMeasurements();
@@ -334,35 +344,38 @@ void vtkMRMLMarkupsNode::PrintSelf(ostream& os, vtkIndent indent)
     os << "unlimited\n";
     }
   os << indent << "NumberOfControlPoints: " << this->GetNumberOfControlPoints() << "\n";
-
-  for (int controlPointIndex = 0; controlPointIndex < this->GetNumberOfControlPoints(); controlPointIndex++)
+  if (this->GetNumberOfControlPoints() > 0)
     {
-    ControlPoint* controlPoint = this->GetNthControlPoint(controlPointIndex);
-    if (!controlPoint)
+    os << indent << "ControlPoints:\n";
+    for (int controlPointIndex = 0; controlPointIndex < this->GetNumberOfControlPoints(); controlPointIndex++)
       {
-      continue;
-      }
-    os << indent << "Control Point " << controlPointIndex << ":\n";
-    os << indent << indent << "ID: " << controlPoint->ID.c_str() << "\n";
-    os << indent << indent << "Label: " << controlPoint->Label.c_str() << "\n";
-    os << indent << indent << "Description: " << controlPoint->Description.c_str() << "\n";
-    os << indent << indent << "Associated node id: " << controlPoint->AssociatedNodeID.c_str() << "\n";
-    os << indent << indent << "Selected: " << controlPoint->Selected << "\n";
-    os << indent << indent << "Locked: " << controlPoint->Locked << "\n";
-    os << indent << indent << "Visibility: " << controlPoint->Visibility << "\n";
-    os << indent << indent << "PositionStatus: " << controlPoint->PositionStatus << "\n";
-    os << indent << indent << "Position: " << controlPoint->Position[0] << ", " <<
-          controlPoint->Position[1] << ", " << controlPoint->Position[2] << "\n";
-    os << indent << indent << "Orientation: ";
-    for (int i = 0; i < 9; i++)
-      {
-      if (i > 0)
+      ControlPoint* controlPoint = this->GetNthControlPoint(controlPointIndex);
+      if (!controlPoint)
         {
-        os << ",  ";
+        continue;
         }
-      os << controlPoint->OrientationMatrix[i];
+      os << indent.GetNextIndent() << "ControlPoint[" << controlPointIndex << "]:\n";
+      os << indent.GetNextIndent().GetNextIndent() << "ID: " << controlPoint->ID.c_str() << "\n";
+      os << indent.GetNextIndent().GetNextIndent() << "Label: " << controlPoint->Label.c_str() << "\n";
+      os << indent.GetNextIndent().GetNextIndent() << "Description: " << controlPoint->Description.c_str() << "\n";
+      os << indent.GetNextIndent().GetNextIndent() << "Associated node id: " << controlPoint->AssociatedNodeID.c_str() << "\n";
+      os << indent.GetNextIndent().GetNextIndent() << "Selected: " << (controlPoint->Selected ? "true" : "false") << "\n";
+      os << indent.GetNextIndent().GetNextIndent() << "Locked: " << (controlPoint->Locked ? "true" : "false") << "\n";
+      os << indent.GetNextIndent().GetNextIndent() << "Visibility: " << (controlPoint->Visibility ? "true" : "false") << "\n";
+      os << indent.GetNextIndent().GetNextIndent() << "PositionStatus: " << vtkMRMLMarkupsNode::GetPositionStatusAsString(controlPoint->PositionStatus) << "\n";
+      os << indent.GetNextIndent().GetNextIndent() << "Position: [" << controlPoint->Position[0] << ", " <<
+            controlPoint->Position[1] << ", " << controlPoint->Position[2] << "]\n";
+      os << indent.GetNextIndent().GetNextIndent() << "Orientation: [";
+      for (int i = 0; i < 9; i++)
+        {
+        if (i > 0)
+          {
+          os << ",  ";
+          }
+        os << controlPoint->OrientationMatrix[i];
+        }
+      os << "]\n";
       }
-    os << "\n";
     }
 
   if  (this->GetNumberOfMeasurements()>0)
@@ -371,7 +384,7 @@ void vtkMRMLMarkupsNode::PrintSelf(ostream& os, vtkIndent indent)
     for (int measurementIndex = 0; measurementIndex < this->GetNumberOfMeasurements(); measurementIndex++)
       {
       vtkMRMLMeasurement* m = this->GetNthMeasurement(measurementIndex);
-      os << indent << indent << m->GetName() << ": " << m->GetValueWithUnitsAsPrintableString() << std::endl;
+      os << indent.GetNextIndent().GetNextIndent() << m->GetName() << ": " << m->GetValueWithUnitsAsPrintableString() << std::endl;
       }
     }
 
@@ -604,10 +617,10 @@ int vtkMRMLMarkupsNode::AddControlPoint(ControlPoint *controlPoint, bool autoLab
     }
 
   if (this->GetFixedNumberOfControlPoints())
-      {
-      vtkErrorMacro("AddNControlPoints: Markup node control point number is locked.");
-      return -1;
-      }
+    {
+    vtkErrorMacro("AddNControlPoints: Markup node control point number is locked.");
+    return -1;
+    }
   // generate a unique id based on list policy
   if (controlPoint->ID.empty())
     {
@@ -1540,7 +1553,14 @@ std::string vtkMRMLMarkupsNode::GetNthControlPointID(int n)
 //-------------------------------------------------------------------------
 int vtkMRMLMarkupsNode::GetNthControlPointIndexByID(const char* controlPointID)
 {
-  if (!controlPointID)
+  // this method is deprecated, call the current implementation
+  return this->GetControlPointIndexByID(controlPointID);
+}
+
+//-------------------------------------------------------------------------
+int vtkMRMLMarkupsNode::GetControlPointIndexByID(const char* id)
+{
+  if (!id)
     {
     return -1;
     }
@@ -1548,7 +1568,45 @@ int vtkMRMLMarkupsNode::GetNthControlPointIndexByID(const char* controlPointID)
     {
     ControlPoint *compareControlPoint = this->ControlPoints[controlPointIndex];
     if (compareControlPoint &&
-        strcmp(compareControlPoint->ID.c_str(), controlPointID) == 0)
+        strcmp(compareControlPoint->ID.c_str(), id) == 0)
+      {
+      return controlPointIndex;
+      }
+    }
+  return -1;
+}
+
+//-------------------------------------------------------------------------
+int vtkMRMLMarkupsNode::GetControlPointIndexByLabel(const char* label)
+{
+  if (!label)
+    {
+    return -1;
+    }
+  for (int controlPointIndex = 0; controlPointIndex < this->GetNumberOfControlPoints(); controlPointIndex++)
+    {
+    ControlPoint *compareControlPoint = this->ControlPoints[controlPointIndex];
+    if (compareControlPoint &&
+        strcmp(compareControlPoint->Label.c_str(), label) == 0)
+      {
+      return controlPointIndex;
+      }
+    }
+  return -1;
+}
+
+//-------------------------------------------------------------------------
+int vtkMRMLMarkupsNode::GetControlPointIndexByDescription(const char* description)
+{
+  if (!description)
+    {
+    return -1;
+    }
+  for (int controlPointIndex = 0; controlPointIndex < this->GetNumberOfControlPoints(); controlPointIndex++)
+    {
+    ControlPoint *compareControlPoint = this->ControlPoints[controlPointIndex];
+    if (compareControlPoint &&
+        strcmp(compareControlPoint->Description.c_str(), description) == 0)
       {
       return controlPointIndex;
       }
@@ -1645,6 +1703,7 @@ void vtkMRMLMarkupsNode::SetNthControlPointLocked(int n, bool flag)
     return;
     }
   controlPoint->Locked = flag;
+  this->UpdateInteractionHandleToWorldMatrix();
   this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointModifiedEvent, static_cast<void*>(&n));
   this->StorableModifiedTime.Modified();
 }
@@ -2172,21 +2231,18 @@ void vtkMRMLMarkupsNode::UnsetNthControlPointPosition(int n)
     }
   int oldPositionStatus = controlPoint->PositionStatus;
   controlPoint->PositionStatus = PositionUndefined;
+  if (!this->GetDisableModifiedEvent())
+    {
+    this->UpdateCurvePolyFromControlPoints();
+    this->UpdateInteractionHandleToWorldMatrix();
+    }
   this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointModifiedEvent, static_cast<void*>(&n));
   this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointPositionUndefinedEvent, static_cast<void*>(&n));
   if (oldPositionStatus == PositionMissing)
     {
     this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointPositionNonMissingEvent, static_cast<void*>(&n));
     }
-
   this->StorableModifiedTime.Modified();
-
-  if (!this->GetDisableModifiedEvent())
-    {
-    this->UpdateCurvePolyFromControlPoints();
-    this->UpdateInteractionHandleToWorldMatrix();
-    }
-
   if (!this->GetDisableModifiedEvent())
     {
     this->UpdateAllMeasurements();
@@ -2207,15 +2263,14 @@ void vtkMRMLMarkupsNode::SetNthControlPointPositionMissing(int n)
     return;
     }
   controlPoint->PositionStatus = PositionMissing;
-  this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointModifiedEvent, static_cast<void*>(&n));
-  this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointPositionMissingEvent, static_cast<void*>(&n));
-  this->StorableModifiedTime.Modified();
-
   if (!this->GetDisableModifiedEvent())
     {
     this->UpdateCurvePolyFromControlPoints();
     this->UpdateInteractionHandleToWorldMatrix();
     }
+  this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointModifiedEvent, static_cast<void*>(&n));
+  this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointPositionMissingEvent, static_cast<void*>(&n));
+  this->StorableModifiedTime.Modified();
 
   this->UpdateMeasurementsInternal();
 }
@@ -2244,14 +2299,13 @@ void vtkMRMLMarkupsNode::ResetNthControlPointPosition(int n)
       }
   }
   controlPoint->PositionStatus = PositionPreview;
-  this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointModifiedEvent, static_cast<void*>(&n));
-  this->StorableModifiedTime.Modified();
-
   if (!this->GetDisableModifiedEvent())
     {
     this->UpdateCurvePolyFromControlPoints();
     this->UpdateInteractionHandleToWorldMatrix();
     }
+  this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointModifiedEvent, static_cast<void*>(&n));
+  this->StorableModifiedTime.Modified();
 
   this->UpdateMeasurementsInternal();
 }
@@ -2270,14 +2324,13 @@ void vtkMRMLMarkupsNode::RestoreNthControlPointPosition(int n)
      return;
     }
   controlPoint->PositionStatus = PositionDefined;
-  this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointModifiedEvent, static_cast<void*>(&n));
-  this->StorableModifiedTime.Modified();
-
   if (!this->GetDisableModifiedEvent())
     {
     this->UpdateCurvePolyFromControlPoints();
     this->UpdateInteractionHandleToWorldMatrix();
     }
+  this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::PointModifiedEvent, static_cast<void*>(&n));
+  this->StorableModifiedTime.Modified();
 
   this->UpdateMeasurementsInternal();
 }
@@ -2314,6 +2367,20 @@ bool vtkMRMLMarkupsNode::GetNthControlPointAutoCreated(int n)
     }
 }
 
+//---------------------------------------------------------------------------
+int vtkMRMLMarkupsNode::GetNumberOfMovableControlPoints()
+{
+  int numberOfMovableControlPoints = 0;
+  for (ControlPointsListType::iterator controlPointIt = this->ControlPoints.begin();
+    controlPointIt != this->ControlPoints.end(); ++controlPointIt)
+    {
+    if ((*controlPointIt)->Locked == false && (*controlPointIt)->PositionStatus == PositionDefined)
+      {
+      numberOfMovableControlPoints++;
+      }
+    }
+  return numberOfMovableControlPoints;
+}
 //---------------------------------------------------------------------------
 int vtkMRMLMarkupsNode::GetNumberOfDefinedControlPoints(bool includePreview/*=false*/)
 {
@@ -2412,7 +2479,7 @@ void vtkMRMLMarkupsNode::GetControlPointLabels(vtkStringArray* labels)
 }
 
 //---------------------------------------------------------------------------
-void vtkMRMLMarkupsNode::SetControlPointPositionsWorld(vtkPoints* points)
+void vtkMRMLMarkupsNode::SetControlPointPositionsWorld(vtkPoints* points, bool setUndefinedPoints/*=true*/)
 {
   if (!points)
     {
@@ -2430,7 +2497,10 @@ void vtkMRMLMarkupsNode::SetControlPointPositionsWorld(vtkPoints* points)
     if (pointIndex < this->GetNumberOfControlPoints())
       {
       // point already exists, just update it
-      this->SetNthControlPointPositionWorld(pointIndex, posWorld);
+      if (setUndefinedPoints || this->GetNthControlPointPositionStatus(pointIndex) == PositionDefined)
+        {
+        this->SetNthControlPointPositionWorld(pointIndex, posWorld);
+        }
       }
     else
       {
@@ -2791,17 +2861,21 @@ void vtkMRMLMarkupsNode::UpdateInteractionHandleToWorldMatrix()
   // The origin of the coordinate system is at the center of mass of the control points
   double origin_World[3] = { 0 };
   int numberOfControlPoints = this->GetNumberOfControlPoints();
+  int numberOfMovableControlPoints = this->GetNumberOfMovableControlPoints();
   vtkNew<vtkPoints> controlPoints_World;
   for (int i = 0; i < numberOfControlPoints; ++i)
     {
     double controlPointPosition_World[3] = { 0.0, 0.0, 0.0 };
-    this->GetNthControlPointPositionWorld(i, controlPointPosition_World);
+    if (!this->GetNthControlPointLocked(i) && this->GetNthControlPointPositionStatus(i) == PositionDefined)
+    {
+      this->GetNthControlPointPositionWorld(i, controlPointPosition_World);
 
-    origin_World[0] += controlPointPosition_World[0] / numberOfControlPoints;
-    origin_World[1] += controlPointPosition_World[1] / numberOfControlPoints;
-    origin_World[2] += controlPointPosition_World[2] / numberOfControlPoints;
+      origin_World[0] += controlPointPosition_World[0] / numberOfMovableControlPoints;
+      origin_World[1] += controlPointPosition_World[1] / numberOfMovableControlPoints;
+      origin_World[2] += controlPointPosition_World[2] / numberOfMovableControlPoints;
 
-    controlPoints_World->InsertNextPoint(controlPointPosition_World);
+      controlPoints_World->InsertNextPoint(controlPointPosition_World);
+      }
     }
 
   for (int i = 0; i < 3; ++i)
@@ -2809,7 +2883,7 @@ void vtkMRMLMarkupsNode::UpdateInteractionHandleToWorldMatrix()
     this->InteractionHandleToWorldMatrix->SetElement(i, 3, origin_World[i]);
     }
 
-  if (this->GetNumberOfControlPoints() < 3)
+  if (numberOfMovableControlPoints < 3)
     {
     return;
     }
@@ -2942,13 +3016,6 @@ void vtkMRMLMarkupsNode::SetFixedNumberOfControlPoints(bool fixed)
     return;
     }
   this->FixedNumberOfControlPoints = fixed;
-
-  // Update MaximumNumberOfControlPoints
-  int fixedPointNumber = fixed ? this->GetNumberOfControlPoints() : this->GetRequiredNumberOfControlPoints();
-  if (fixedPointNumber >= 0)
-    {
-    this->MaximumNumberOfControlPoints = fixedPointNumber;
-    }
 
   this->Modified();
   this->InvokeCustomModifiedEvent(vtkMRMLMarkupsNode::FixedNumberOfControlPointsModifiedEvent);

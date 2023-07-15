@@ -1,6 +1,6 @@
 # C++ debugging with CodeLite
 
-[CodeLite](https://www.codelite.org) is a relatively lightweight, cross-platform IDE.
+[CodeLite](https://codelite.org/) is a relatively lightweight, cross-platform IDE.
 
 ## Configure build
 
@@ -29,7 +29,7 @@ Under Settings->Debugger
 
 - "Enter here any commands passed to debugger on startup:"
 
-    ```txt
+    ```text
     set exec-wrapper `~/Slicer-SuperBuild-Debug/Slicer-build/WrapSlicer`
     exec-file `~/Slicer-SuperBuild-Debug/Slicer-build/bin/SlicerApp-real`
     ```

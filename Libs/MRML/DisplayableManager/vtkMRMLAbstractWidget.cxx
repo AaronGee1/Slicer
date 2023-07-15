@@ -154,11 +154,16 @@ void vtkMRMLAbstractWidget::SetRepresentation(vtkMRMLAbstractWidgetRepresentatio
 
   this->WidgetRep = rep;
 
-  if (this->Renderer != nullptr && this->WidgetRep != nullptr)
+  if (this->WidgetRep)
     {
-    this->WidgetRep->SetRenderer(this->Renderer);
-    this->Renderer->AddViewProp(this->WidgetRep);
+    if (this->Renderer)
+      {
+      this->WidgetRep->SetRenderer(this->Renderer);
+      this->Renderer->AddViewProp(this->WidgetRep);
+      }
+    this->WidgetRep->SetApplicationLogic(this->ApplicationLogic);
     }
+
 }
 
 //-------------------------------------------------------------------------
@@ -434,6 +439,10 @@ const char* vtkMRMLAbstractWidget::GetAssociatedNodeID(vtkMRMLInteractionEventDa
 void vtkMRMLAbstractWidget::SetMRMLApplicationLogic(vtkMRMLApplicationLogic* applicationLogic)
 {
   this->ApplicationLogic = applicationLogic;
+  if (this->GetRepresentation())
+    {
+    this->GetRepresentation()->SetApplicationLogic(applicationLogic);
+    }
 }
 
 //---------------------------------------------------------------------------
@@ -455,6 +464,38 @@ vtkMRMLInteractionNode* vtkMRMLAbstractWidget::GetInteractionNode()
     return nullptr;
     }
   return viewNode->GetInteractionNode();
+}
+
+//---------------------------------------------------------------------------
+bool vtkMRMLAbstractWidget::CanProcessButtonClickEvent(vtkMRMLInteractionEventData* eventData, double& distance2)
+{
+  if (eventData->GetMouseMovedSinceButtonDown())
+    {
+    return false;
+    }
+
+  int clickEvent = 0;
+  switch (eventData->GetType())
+    {
+    case vtkCommand::LeftButtonReleaseEvent:
+      clickEvent = vtkMRMLInteractionEventData::LeftButtonClickEvent;
+      break;
+    case vtkCommand::MiddleButtonReleaseEvent:
+      clickEvent = vtkMRMLInteractionEventData::MiddleButtonClickEvent;
+      break;
+    case vtkCommand::RightButtonReleaseEvent:
+      clickEvent = vtkMRMLInteractionEventData::RightButtonClickEvent;
+      break;
+    default:
+      return false;
+    }
+
+  // Temporarily change the event ID to click, and process the event
+  int originalEventType = eventData->GetType();
+  eventData->SetType(clickEvent);
+  bool canProcessEvent = this->CanProcessInteractionEvent(eventData, distance2);
+  eventData->SetType(originalEventType);
+  return canProcessEvent;
 }
 
 //---------------------------------------------------------------------------

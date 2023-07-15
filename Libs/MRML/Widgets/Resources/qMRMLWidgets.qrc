@@ -37,6 +37,7 @@
         <file>Icons/LayoutFourByTwoSliceView.png</file>
         <file>Icons/LayoutFiveByTwoSliceView.png</file>
         <file>Icons/LayoutThreeByThreeSliceView.png</file>
+        <file>Icons/LayoutDualMonitorFourUpView.png</file>
         <file>Icons/OrientationMarker.png</file>
         <file>Icons/Ruler.png</file>
         <file>Icons/SliceIntersections.png</file>
@@ -160,5 +161,6 @@
         <file>Icons/LayoutFourUpQuantitativeTableView.png</file>
         <file>Icons/ViewMaximize.png</file>
         <file>Icons/ViewRestore.png</file>
+        <file>Icons/SlabReconstruction.png</file>
     </qresource>
 </RCC>

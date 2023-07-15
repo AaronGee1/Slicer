@@ -31,7 +31,7 @@ class SitkUtilsTests(unittest.TestCase):
         self.assertEqual(volumeNode1, slicer.util.getNode('MRHead'),
                          'Original volume is changed')
         self.assertNotEqual(volumeNode1, volumeNode1Copy,
-                         'Copy of original volume is not created')
+                            'Copy of original volume is not created')
 
         """ Few modification of the image : Direction, Origin """
         sitkimage.SetDirection((-1.0, 1.0, 0.0, 0.0, -1.0, 1.0, 1.0, 0.0, 1.0))
@@ -39,10 +39,10 @@ class SitkUtilsTests(unittest.TestCase):
 
         """ Few pixel changed """
         size = sitkimage.GetSize()
-        for x in range(0,size[0],int(size[0]/10)):
-            for y in range(0,size[1],int(size[1]/10)):
-                for z in range(0,size[2],int(size[2]/10)):
-                    sitkimage.SetPixel(x,y,z,0)
+        for x in range(0, size[0], int(size[0] / 10)):
+            for y in range(0, size[1], int(size[1] / 10)):
+                for z in range(0, size[2], int(size[2] / 10)):
+                    sitkimage.SetPixel(x, y, z, 0)
 
         volumeNode1Modified = su.PushVolumeToSlicer(sitkimage, name="ImageChanged", className="vtkMRMLScalarVolumeNode")
         self.assertEqual(volumeNode1Modified.GetName(), "ImageChanged",
@@ -54,7 +54,7 @@ class SitkUtilsTests(unittest.TestCase):
         """
         tmp = volumeNode1Modified.GetOrigin()
         valToCompare = (-tmp[0], -tmp[1], tmp[2])
-        self.assertEqual(valToCompare,sitkimage.GetOrigin(),
+        self.assertEqual(valToCompare, sitkimage.GetOrigin(),
                          'Modified origin mismatch')
 
         """ Test push with all parameter combinations """
@@ -62,13 +62,13 @@ class SitkUtilsTests(unittest.TestCase):
             volumeNodeTested = None
             volumeNodeNew = None
             for pushToNewNode in [True, False]:
-                print("volumeClassName : %s" % volumeClassName )
-                print("pushToNewNode : %s " % pushToNewNode )
+                print("volumeClassName : %s" % volumeClassName)
+                print("pushToNewNode : %s " % pushToNewNode)
 
                 if pushToNewNode:
                     volumeNodeTested = su.PushVolumeToSlicer(sitkimage,
-                        name='volumeNode-'+volumeClassName+"-"+str(pushToNewNode),
-                        className=volumeClassName)
+                                                             name='volumeNode-' + volumeClassName + "-" + str(pushToNewNode),
+                                                             className=volumeClassName)
                     existingVolumeNode = volumeNodeTested
                 else:
                     volumeNodeTested = su.PushVolumeToSlicer(sitkimage, existingVolumeNode)

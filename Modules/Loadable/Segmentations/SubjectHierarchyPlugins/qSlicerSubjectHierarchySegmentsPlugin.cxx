@@ -39,11 +39,12 @@
 #include "vtkMRMLSubjectHierarchyNode.h"
 
 // Qt includes
+#include <QAction>
 #include <QDebug>
 #include <QIcon>
-#include <QMessageBox>
-#include <QAction>
 #include <QMenu>
+#include <QMessageBox>
+#include <QWidgetAction>
 
 // Slicer includes
 #include "qSlicerApplication.h"
@@ -52,6 +53,9 @@
 
 // MRML widgets includes
 #include "qMRMLNodeComboBox.h"
+
+// CTK includes
+#include "ctkDoubleSlider.h"
 
 //-----------------------------------------------------------------------------
 /// \ingroup SlicerRt_QtModules_Segmentations
@@ -71,6 +75,9 @@ public:
   QAction* ShowAllSegmentsAction{nullptr};
   QAction* JumpSlicesAction{nullptr};
   QAction* CloneSegmentAction{nullptr};
+  QAction* OpacityAction{nullptr};
+  QMenu* OpacityMenu{nullptr};
+  ctkDoubleSlider* OpacitySlider{nullptr};
 };
 
 //-----------------------------------------------------------------------------
@@ -89,22 +96,36 @@ void qSlicerSubjectHierarchySegmentsPluginPrivate::init()
   Q_Q(qSlicerSubjectHierarchySegmentsPlugin);
 
   // Show only current segment action
-  this->ShowOnlyCurrentSegmentAction = new QAction("Show only this segment",q);
+  this->ShowOnlyCurrentSegmentAction = new QAction(qSlicerSubjectHierarchySegmentsPlugin::tr("Show only this segment"), q);
   QObject::connect(this->ShowOnlyCurrentSegmentAction, SIGNAL(triggered()), q, SLOT(showOnlyCurrentSegment()));
 
   // Show all segments action
-  this->ShowAllSegmentsAction = new QAction("Show all segments",q);
+  this->ShowAllSegmentsAction = new QAction(qSlicerSubjectHierarchySegmentsPlugin::tr("Show all segments"), q);
   QObject::connect(this->ShowAllSegmentsAction, SIGNAL(triggered()), q, SLOT(showAllSegments()));
 
   // Jump slices action
-  this->JumpSlicesAction = new QAction("Jump slices",q);
+  this->JumpSlicesAction = new QAction(qSlicerSubjectHierarchySegmentsPlugin::tr("Jump slices"),q);
   QObject::connect(this->JumpSlicesAction, SIGNAL(triggered()), q, SLOT(jumpSlices()));
 
   // Clone segment action
-  this->CloneSegmentAction = new QAction("Clone", q);
+  this->CloneSegmentAction = new QAction(qSlicerSubjectHierarchySegmentsPlugin::tr("Clone"), q);
   qSlicerSubjectHierarchyAbstractPlugin::setActionPosition(this->CloneSegmentAction,
     qSlicerSubjectHierarchyAbstractPlugin::SectionNode, 0.5); // put it right after "Rename" action
   QObject::connect(this->CloneSegmentAction, SIGNAL(triggered()), q, SLOT(cloneSegment()));
+
+  this->OpacityMenu = new QMenu(qSlicerSubjectHierarchySegmentsPlugin::tr("Opacity"));
+  this->OpacitySlider = new ctkDoubleSlider(this->OpacityMenu);
+  this->OpacitySlider->setOrientation(Qt::Horizontal);
+  this->OpacitySlider->setRange(0.0, 1.0);
+  this->OpacitySlider->setSingleStep(0.1);
+  QObject::connect(this->OpacitySlider, SIGNAL(valueChanged(double)), q, SLOT(setOpacityForCurrentItem(double)));
+  QWidgetAction* opacityAction = new QWidgetAction(this->OpacityMenu);
+  opacityAction->setDefaultWidget(this->OpacitySlider);
+  this->OpacityMenu->addAction(opacityAction);
+
+  this->OpacityAction = new QAction(qSlicerSubjectHierarchySegmentsPlugin::tr("Opacity"), q);
+  this->OpacityAction->setToolTip(qSlicerSubjectHierarchySegmentsPlugin::tr("Set segment opacity in the sub-menu"));
+  this->OpacityAction->setMenu(this->OpacityMenu);
 }
 
 //-----------------------------------------------------------------------------
@@ -203,42 +224,42 @@ bool qSlicerSubjectHierarchySegmentsPlugin::reparentItemInsideSubjectHierarchy(v
   // Notify user if failed to reparent
   if (!success)
     {
-    // If the two master representations are the same, then probably the segment IDs were duplicate
-    if (fromSegmentationNode->GetSegmentation()->GetMasterRepresentationName() == toSegmentationNode->GetSegmentation()->GetMasterRepresentationName())
+    // If the two source representations are the same, then probably the segment IDs were duplicate
+    if (fromSegmentationNode->GetSegmentation()->GetSourceRepresentationName() == toSegmentationNode->GetSegmentation()->GetSourceRepresentationName())
       {
-      QString message = QString("Segment ID of the moved segment (%1) might exist in the target segmentation.\n"
+      QString message = tr("Segment ID of the moved segment (%1) might exist in the target segmentation.\n"
         "Please check the error window for details.").arg(segmentId.c_str());
       QMessageBox::warning(nullptr, tr("Failed to move segment between segmentations"), message);
       return false;
       }
 
-    // Otherwise master representation has to be changed
-    QString message = QString("Cannot convert source master representation '%1' into target master '%2',"
+    // Otherwise source representation has to be changed
+    QString message = tr("Cannot convert source representation '%1' into target source '%2',"
       "thus unable to move segment '%3' from segmentation '%4' to '%5'.\n\n"
-      "Would you like to change the master representation of '%5' to '%1'?\n\n"
+      "Would you like to change the source representation of '%5' to '%1'?\n\n"
       "Note: This may result in unwanted data loss in %5.")
-      .arg(fromSegmentationNode->GetSegmentation()->GetMasterRepresentationName().c_str())
-      .arg(toSegmentationNode->GetSegmentation()->GetMasterRepresentationName().c_str())
+      .arg(fromSegmentationNode->GetSegmentation()->GetSourceRepresentationName().c_str())
+      .arg(toSegmentationNode->GetSegmentation()->GetSourceRepresentationName().c_str())
       .arg(segmentId.c_str()).arg(fromSegmentationNode->GetName()).arg(toSegmentationNode->GetName());
     QMessageBox::StandardButton answer =
       QMessageBox::question(nullptr, tr("Failed to move segment between segmentations"), message,
       QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
     if (answer == QMessageBox::Yes)
       {
-      // Convert target segmentation to master representation of source segmentation
+      // Convert target segmentation to source representation of source segmentation
       bool successfulConversion = toSegmentationNode->GetSegmentation()->CreateRepresentation(
-        fromSegmentationNode->GetSegmentation()->GetMasterRepresentationName() );
+        fromSegmentationNode->GetSegmentation()->GetSourceRepresentationName() );
       if (!successfulConversion)
         {
-        QString message = QString("Failed to convert %1 to %2").arg(toSegmentationNode->GetName())
-          .arg(fromSegmentationNode->GetSegmentation()->GetMasterRepresentationName().c_str());
+        QString message = tr("Failed to convert %1 to %2").arg(toSegmentationNode->GetName())
+          .arg(fromSegmentationNode->GetSegmentation()->GetSourceRepresentationName().c_str());
         QMessageBox::warning(nullptr, tr("Conversion failed"), message);
         return false;
         }
 
-      // Change master representation of target to that of source
-      toSegmentationNode->GetSegmentation()->SetMasterRepresentationName(
-        fromSegmentationNode->GetSegmentation()->GetMasterRepresentationName() );
+      // Change source representation of target to that of source
+      toSegmentationNode->GetSegmentation()->SetSourceRepresentationName(
+        fromSegmentationNode->GetSegmentation()->GetSourceRepresentationName() );
 
       // Retry reparenting
       return this->reparentItemInsideSubjectHierarchy(itemID, parentItemID);
@@ -299,19 +320,19 @@ QString qSlicerSubjectHierarchySegmentsPlugin::tooltip(vtkIdType itemID)const
   if (itemID == vtkMRMLSubjectHierarchyNode::INVALID_ITEM_ID)
     {
     qCritical() << Q_FUNC_INFO << ": Invalid input item";
-    return QString("Invalid");
+    return tr("Invalid");
     }
   vtkMRMLSubjectHierarchyNode* shNode = qSlicerSubjectHierarchyPluginHandler::instance()->subjectHierarchyNode();
   if (!shNode)
     {
     qCritical() << Q_FUNC_INFO << ": Failed to access subject hierarchy node";
-    return QString("Invalid");
+    return tr("Invalid");
     }
   vtkMRMLScene* scene = qSlicerSubjectHierarchyPluginHandler::instance()->mrmlScene();
   if (!scene)
     {
     qCritical() << Q_FUNC_INFO << ": Invalid MRML scene";
-    return QString("Invalid");
+    return tr("Invalid");
     }
 
   // Get basic tooltip from abstract plugin
@@ -334,46 +355,50 @@ QString qSlicerSubjectHierarchySegmentsPlugin::tooltip(vtkIdType itemID)const
   // Representations
   std::vector<std::string> containedRepresentationNames;
   segment->GetContainedRepresentationNames(containedRepresentationNames);
-  tooltipString.append( QString("Segment (Representations: ") );
+  QString representations;
   if (containedRepresentationNames.empty())
     {
-    tooltipString.append( QString("None!)") );
+    representations = tr("None");
     }
   else
     {
     for (std::vector<std::string>::iterator reprIt = containedRepresentationNames.begin();
       reprIt != containedRepresentationNames.end(); ++reprIt)
       {
-      tooltipString.append( reprIt->c_str() );
-      tooltipString.append( ", " );
+      if (!representations.isEmpty())
+        {
+        representations.append(", ");
+        }
+      representations.append(reprIt->c_str());
       }
-    tooltipString = tooltipString.left(tooltipString.length()-2).append(")");
     }
 
   // Color
   double color[3] = {0.0,0.0,0.0};
   segment->GetColor(color);
-  tooltipString.append( QString(" (Color: %1,%2,%3)").arg(
-    (int)(color[0]*255)).arg((int)(color[1]*255)).arg((int)(color[2]*255)) );
-
   // Tags
-  std::map<std::string,std::string> tags;
-  segment->GetTags(tags);
-  tooltipString.append( QString(" (Tags: ") );
-  if (tags.empty())
+  std::map<std::string,std::string> tagsMap;
+  segment->GetTags(tagsMap);
+  QString tags;
+  if (tagsMap.empty())
     {
-    tooltipString.append( QString("None)") );
+    tags = tr("None");
     }
   else
     {
-    for (std::map<std::string,std::string>::iterator tagIt=tags.begin(); tagIt!=tags.end(); ++tagIt)
+    for (std::map<std::string,std::string>::iterator tagIt = tagsMap.begin(); tagIt != tagsMap.end(); ++tagIt)
       {
-      std::string tagString = tagIt->first + ": " + tagIt->second + ", ";
-      tooltipString.append( tagString.c_str() );
+      if (!tags.isEmpty())
+        {
+        tags.append(", ");
+        }
+      tags.append(QString::fromStdString(tagIt->first) + ": " + QString::fromStdString(tagIt->second));
       }
-    tooltipString = tooltipString.left(tooltipString.length()-2).append(")");
     }
-
+  tooltipString.append(tr("Segment - Representations: %1, Color: (%2, %3, %4)\nTags: %5")
+    .arg(representations)
+    .arg((int)(color[0]*255)).arg((int)(color[1]*255)).arg((int)(color[2]*255))
+    .arg(tags));
   return tooltipString;
 }
 
@@ -671,7 +696,7 @@ QList<QAction*> qSlicerSubjectHierarchySegmentsPlugin::visibilityContextMenuActi
   Q_D(const qSlicerSubjectHierarchySegmentsPlugin);
 
   QList<QAction*> actions;
-  actions << d->ShowOnlyCurrentSegmentAction << d->ShowAllSegmentsAction << d->JumpSlicesAction;
+  actions << d->OpacityAction << d->ShowOnlyCurrentSegmentAction << d->ShowAllSegmentsAction << d->JumpSlicesAction;
   return actions;
 }
 
@@ -692,6 +717,33 @@ void qSlicerSubjectHierarchySegmentsPlugin::showVisibilityContextMenuActionsForI
     d->ShowOnlyCurrentSegmentAction->setVisible(true);
     d->ShowAllSegmentsAction->setVisible(true);
     d->JumpSlicesAction->setVisible(true);
+    d->OpacityAction->setVisible(true);
+
+    // Set current segment opacity to the opacity slider
+    vtkMRMLSubjectHierarchyNode* shNode = qSlicerSubjectHierarchyPluginHandler::instance()->subjectHierarchyNode();
+    vtkMRMLScene* scene = qSlicerSubjectHierarchyPluginHandler::instance()->mrmlScene();
+    if (!scene)
+      {
+      qCritical() << Q_FUNC_INFO << ": Invalid MRML scene";
+      return;
+      }
+    vtkMRMLSegmentationNode* segmentationNode =
+      vtkSlicerSegmentationsModuleLogic::GetSegmentationNodeForSegmentSubjectHierarchyItem(itemID, shNode->GetScene());
+    if (!segmentationNode)
+      {
+      qCritical() << Q_FUNC_INFO << ": Unable to find segmentation node for segment subject hierarchy item " << shNode->GetItemName(itemID).c_str();
+      return;
+      }
+    std::string segmentId = shNode->GetItemAttribute(itemID, vtkMRMLSegmentationNode::GetSegmentIDAttributeName());
+    vtkMRMLSegmentationDisplayNode* displayNode = vtkMRMLSegmentationDisplayNode::SafeDownCast(segmentationNode->GetDisplayNode());
+    if (!displayNode)
+      {
+      qCritical() << Q_FUNC_INFO << ": Unable to find segmentation display node for segment subject hierarchy item "
+        << shNode->GetItemName(itemID).c_str();
+      return;
+      }
+
+    d->OpacitySlider->setValue(displayNode->GetSegmentOpacity3D(segmentId));
     }
 }
 
@@ -987,4 +1039,46 @@ bool qSlicerSubjectHierarchySegmentsPlugin::showItemInView(
   qSlicerSubjectHierarchySegmentationsPlugin* segmentationsPlugin = qobject_cast<qSlicerSubjectHierarchySegmentationsPlugin*>(
     qSlicerSubjectHierarchyPluginHandler::instance()->pluginByName("Segmentations") );
   return segmentationsPlugin->showItemInView(segmentationItemId, viewNode, allItemsToShow);
+}
+
+//---------------------------------------------------------------------------
+void qSlicerSubjectHierarchySegmentsPlugin::setOpacityForCurrentItem(double opacity)
+{
+  // Get currently selected node and scene
+  vtkMRMLSubjectHierarchyNode* shNode = qSlicerSubjectHierarchyPluginHandler::instance()->subjectHierarchyNode();
+  if (!shNode)
+    {
+    qCritical() << Q_FUNC_INFO << ": Failed to access subject hierarchy node";
+    return;
+    }
+  vtkIdType currentItemID = qSlicerSubjectHierarchyPluginHandler::instance()->currentItem();
+  if (!currentItemID)
+    {
+    qCritical() << Q_FUNC_INFO << ": Invalid current subject hierarchy item!";
+    return;
+    }
+
+  vtkMRMLScene* scene = qSlicerSubjectHierarchyPluginHandler::instance()->mrmlScene();
+  if (!scene)
+    {
+    qCritical() << Q_FUNC_INFO << ": Invalid MRML scene";
+    return;
+    }
+  vtkMRMLSegmentationNode* segmentationNode =
+    vtkSlicerSegmentationsModuleLogic::GetSegmentationNodeForSegmentSubjectHierarchyItem(currentItemID, shNode->GetScene());
+  if (!segmentationNode)
+    {
+    qCritical() << Q_FUNC_INFO << ": Unable to find segmentation node for segment subject hierarchy item " << shNode->GetItemName(currentItemID).c_str();
+    return;
+    }
+  std::string segmentId = shNode->GetItemAttribute(currentItemID, vtkMRMLSegmentationNode::GetSegmentIDAttributeName());
+  vtkMRMLSegmentationDisplayNode* displayNode = vtkMRMLSegmentationDisplayNode::SafeDownCast(segmentationNode->GetDisplayNode());
+  if (!displayNode)
+    {
+    qCritical() << Q_FUNC_INFO << ": Unable to find segmentation display node for segment subject hierarchy item "
+      << shNode->GetItemName(currentItemID).c_str();
+    return;
+    }
+
+  displayNode->SetSegmentOpacity(segmentId, opacity);
 }

@@ -22,6 +22,7 @@
 #define __qSlicerMainWindow_p_h
 
 // Qt includes
+#include <QPointer>
 #include <QQueue>
 class QToolButton;
 
@@ -66,22 +67,29 @@ public:
 
   void updatePythonConsolePalette();
 
+  // Add module action to the favorite modules toolbar
+  void addFavoriteModule(const QString& moduleName);
+
 #ifdef Slicer_USE_PYTHONQT
-  QDockWidget*                    PythonConsoleDockWidget;
-  QAction*                        PythonConsoleToggleViewAction;
+  QDockWidget*                    PythonConsoleDockWidget{nullptr};
+  QAction*                        PythonConsoleToggleViewAction{nullptr};
 #endif
-  ctkErrorLogWidget*              ErrorLogWidget;
-  QToolButton*                    ErrorLogToolButton;
-  QToolButton*                    LayoutButton;
-  qSlicerModuleSelectorToolBar*   ModuleSelectorToolBar;
+  QDockWidget*                    ErrorLogDockWidget{nullptr};
+  QAction*                        ErrorLogToggleViewAction{nullptr};
+  ctkErrorLogWidget*              ErrorLogWidget{nullptr};
+  QToolButton*                    ErrorLogToolButton{nullptr};
+  QToolButton*                    LayoutButton{nullptr};
+  qSlicerModuleSelectorToolBar*   ModuleSelectorToolBar{nullptr};
   QStringList                     FavoriteModules;
-  qSlicerLayoutManager*           LayoutManager;
+  // In case of a custom CentralWidget is used, the layout manager may get deleted.
+  // Use QPointer to detect if the underlying object is deleted.
+  QPointer<qSlicerLayoutManager>  LayoutManager;
   QQueue<qSlicerIO::IOProperties> RecentlyLoadedFileProperties;
 
   QByteArray                      StartupState;
 
-  bool                            WindowInitialShowCompleted;
-  bool                            IsClosing;
+  bool                            WindowInitialShowCompleted{false};
+  bool                            IsClosing{false};
 };
 
 #endif

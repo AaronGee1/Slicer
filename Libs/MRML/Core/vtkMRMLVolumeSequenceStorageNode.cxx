@@ -18,7 +18,6 @@ or http://www.slicer.org/copyright/copyright.txt for details.
 #include "vtkMRMLSequenceNode.h"
 #include "vtkMRMLVectorVolumeNode.h"
 
-#include "vtkSlicerVersionConfigure.h"
 #include "vtkTeemNRRDReader.h"
 #include "vtkTeemNRRDWriter.h"
 #include "vtkObjectFactory.h"
@@ -109,18 +108,18 @@ int vtkMRMLVolumeSequenceStorageNode::ReadDataInternal(vtkMRMLNode* refNode)
 #ifdef NRRD_CHUNK_IO_AVAILABLE
     if (*kit == "axis 0 index type")
       {
-      volSequenceNode->SetIndexTypeFromString(reader->GetHeaderValue((*kit).c_str()));
+      volSequenceNode->SetIndexTypeFromString(reader->GetHeaderValue(kit->c_str()));
       frameAxis = 0;
       }
     else if (*kit == "axis 3 index type")
       {
-      volSequenceNode->SetIndexTypeFromString(reader->GetHeaderValue((*kit).c_str()));
+      volSequenceNode->SetIndexTypeFromString(reader->GetHeaderValue(kit->c_str()));
       frameAxis = 3;
       }
     else if (*kit == "axis 0 index values" || *kit == "axis 3 index values")
       {
       std::string indexValue;
-      for (std::istringstream indexValueList(reader->GetHeaderValue((*kit).c_str()));
+      for (std::istringstream indexValueList(reader->GetHeaderValue(kit->c_str()));
         indexValueList >> indexValue;)
         {
         // Encode string to make sure there are no spaces in the serialized index value (space is used as separator)
@@ -129,12 +128,12 @@ int vtkMRMLVolumeSequenceStorageNode::ReadDataInternal(vtkMRMLNode* refNode)
 #else
     if (*kit == "axis 0 index type")
       {
-      volSequenceNode->SetIndexTypeFromString(reader->GetHeaderValue((*kit).c_str()));
+      volSequenceNode->SetIndexTypeFromString(reader->GetHeaderValue(kit->c_str()));
       }
     else if (*kit == "axis 0 index values")
       {
       std::string indexValue;
-      for (std::istringstream indexValueList(reader->GetHeaderValue((*kit).c_str()));
+      for (std::istringstream indexValueList(reader->GetHeaderValue(kit->c_str()));
         indexValueList >> indexValue;)
         {
         // Encode string to make sure there are no spaces in the serialized index value (space is used as separator)
@@ -144,7 +143,7 @@ int vtkMRMLVolumeSequenceStorageNode::ReadDataInternal(vtkMRMLNode* refNode)
       }
     else
       {
-      volSequenceNode->SetAttribute((*kit).c_str(), reader->GetHeaderValue((*kit).c_str()));
+      volSequenceNode->SetAttribute(kit->c_str(), reader->GetHeaderValue(kit->c_str()));
       }
     }
 
@@ -393,8 +392,8 @@ int vtkMRMLVolumeSequenceStorageNode::WriteDataInternal(vtkMRMLNode *refNode)
       currentFrameVolumeScalarType = frameVolume->GetImageData()->GetScalarType();
       }
     if (currentFrameVolumeDimensions[0] != frameVolumeDimensions[0]
-    || currentFrameVolumeDimensions[0] != frameVolumeDimensions[0]
-    || currentFrameVolumeDimensions[0] != frameVolumeDimensions[0]
+    || currentFrameVolumeDimensions[1] != frameVolumeDimensions[1]
+    || currentFrameVolumeDimensions[2] != frameVolumeDimensions[2]
     || currentFrameVolumeScalarType != frameVolumeScalarType)
       {
       vtkDebugMacro(<< "vtkMRMLVolumeSequenceStorageNode::WriteDataInternal: Data node "<<frameIndex<<" size or scalar type mismatch ("
@@ -423,16 +422,12 @@ int vtkMRMLVolumeSequenceStorageNode::WriteDataInternal(vtkMRMLNode *refNode)
     return 0;
     }
   // Use here the NRRD Writer
-#if Slicer_VERSION_MAJOR > 4 || (Slicer_VERSION_MAJOR == 4 && Slicer_VERSION_MINOR >= 9)
   vtkNew<vtkTeemNRRDWriter> writer;
-  // ForceRangeAxis needs to be emabled for the writer to correctly write image sequences that contain only a single frame.
+  // ForceRangeAxis needs to be enabled for the writer to correctly write image sequences that contain only a single frame.
   // Without this option the range axis would be omitted for single frame sequences, causing the first axis to be a spatial dimension, rather than range.
   // This would cause an error when attempting to set units on the first axis.
   writer->SetForceRangeAxis(true);
   writer->SetVectorAxisKind(nrrdKindList);
-#else
-  vtkNew<vtkNRRDWriter> writer;
-#endif
   writer->SetFileName(fullName.c_str());
 
 #ifdef NRRD_CHUNK_IO_AVAILABLE
@@ -491,7 +486,7 @@ int vtkMRMLVolumeSequenceStorageNode::WriteDataInternal(vtkMRMLNode *refNode)
   std::vector<std::string>::iterator ait = attributeNames.begin();
   for (; ait != attributeNames.end(); ++ait)
     {
-    writer->SetAttribute((*ait), volSequenceNode->GetAttribute((*ait).c_str()));
+    writer->SetAttribute((*ait), volSequenceNode->GetAttribute(ait->c_str()));
     }
 
 #ifdef NRRD_CHUNK_IO_AVAILABLE
@@ -526,8 +521,8 @@ int vtkMRMLVolumeSequenceStorageNode::WriteDataInternal(vtkMRMLNode *refNode)
       currentFrameVolumeScalarType = frameVolume->GetImageData()->GetScalarType();
       }
     if (currentFrameVolumeDimensions[0] != frameVolumeDimensions[0]
-    || currentFrameVolumeDimensions[0] != frameVolumeDimensions[0]
-    || currentFrameVolumeDimensions[0] != frameVolumeDimensions[0]
+    || currentFrameVolumeDimensions[1] != frameVolumeDimensions[1]
+    || currentFrameVolumeDimensions[2] != frameVolumeDimensions[2]
     || currentFrameVolumeScalarType != frameVolumeScalarType)
       {
       vtkDebugMacro(<< "vtkMRMLVolumeSequenceStorageNode::WriteDataInternal: Data node "<<frameIndex<<" size or scalar type mismatch ("

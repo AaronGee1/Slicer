@@ -386,12 +386,12 @@ bool vtkMRMLViewInteractorStyle::DelegateInteractionEventDataToDisplayableManage
     {
     if (oldFocusedDisplayableManager != nullptr)
       {
-      oldFocusedDisplayableManager->SetHasFocus(false);
+      oldFocusedDisplayableManager->SetHasFocus(false, eventData);
       }
     this->FocusedDisplayableManager = closestDisplayableManager;
     if (closestDisplayableManager != nullptr)
       {
-      closestDisplayableManager->SetHasFocus(true);
+      closestDisplayableManager->SetHasFocus(true, eventData);
       }
     }
 
@@ -462,20 +462,4 @@ void vtkMRMLViewInteractorStyle::CustomProcessEvents(vtkObject* object,
 void vtkMRMLViewInteractorStyle::SetInteractor(vtkRenderWindowInteractor *interactor)
 {
   this->Superclass::SetInteractor(interactor);
-
-#if VTK_MAJOR_VERSION < 9
-  // There is no observer for double-click events in superclass, add them now
-  if (this->Interactor)
-    {
-    this->Interactor->AddObserver(vtkCommand::LeftButtonDoubleClickEvent, this->EventCallbackCommand, this->Priority);
-    this->Interactor->AddObserver(vtkCommand::MiddleButtonDoubleClickEvent, this->EventCallbackCommand, this->Priority);
-    this->Interactor->AddObserver(vtkCommand::RightButtonDoubleClickEvent, this->EventCallbackCommand, this->Priority);
-    this->Interactor->AddObserver(vtkCommand::StartPinchEvent, this->EventCallbackCommand, this->Priority);
-    this->Interactor->AddObserver(vtkCommand::EndPinchEvent, this->EventCallbackCommand, this->Priority);
-    this->Interactor->AddObserver(vtkCommand::StartRotateEvent, this->EventCallbackCommand, this->Priority);
-    this->Interactor->AddObserver(vtkCommand::EndRotateEvent, this->EventCallbackCommand, this->Priority);
-    this->Interactor->AddObserver(vtkCommand::StartPanEvent, this->EventCallbackCommand, this->Priority);
-    this->Interactor->AddObserver(vtkCommand::EndPanEvent, this->EventCallbackCommand, this->Priority);
-    }
-#endif
 }

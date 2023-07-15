@@ -43,20 +43,22 @@ public:
 
   /// Representation models
   /// \sa GetRepresentation(), SetRepresentation()
-  typedef enum {
+  enum RepresentationType
+    {
     PointsRepresentation = 0,
     WireframeRepresentation,
     SurfaceRepresentation
-  } RepresentationType;
+    };
 
   /// Interpolation modes
   /// \sa GetInterpolation(), SetInterpolation()
-  typedef enum {
+  enum InterpolationType
+    {
     FlatInterpolation = 0,
     GouraudInterpolation,
     PhongInterpolation,
     PBRInterpolation
-  } InterpolationType;
+    };
 
   /// Scalar range options for displaying data associated with this display
   /// node, this setting determines if the display node, color node, or ?
@@ -70,7 +72,8 @@ public:
   /// UseManualScalarRange - use user defined values
   /// \sa ScalarRangeFlag, GetScalarRangeFlag(), SetScalarRangeFlag(),
   /// SetScalarRange(), GetScalarRange(), GetScalarRangeFlagTypeAsString()
-  typedef enum {
+  enum ScalarRangeFlagType
+    {
     UseManualScalarRange = 0,
     UseDataScalarRange,
     UseColorNodeScalarRange,
@@ -78,14 +81,15 @@ public:
     UseDirectMapping,
     // insert types above this line
     NUM_SCALAR_RANGE_FLAGS
-  } ScalarRangeFlagType;
+    };
 
   /// Enumerated values for ShowMode.
-  typedef enum {
+  enum ShowModeType
+    {
     ShowDefault = 0, ///< set visibility of this node if user requests show of the displayable node
     ShowIgnore, ///< set visibility manually, useful for non-essential display nodes (e.g., color legend)
     ShowMode_Last
-  } ShowModeType;
+    };
 
   enum
     {
@@ -589,7 +593,7 @@ public:
   /// If empty, display in all views
   /// \sa ViewNodeIDs, GetNthViewNodeID(), AddViewNodeID()
   inline std::vector< std::string > GetViewNodeIDs()const;
-  /// True if the view node id is present in the viewnodeid list
+  /// True if the view node id is present in the viewNodeID list
   /// false if not found
   /// \sa ViewNodeIDs, IsDisplayableInView(), AddViewNodeID()
   bool IsViewNodeIDPresent(const char* viewNodeID)const;

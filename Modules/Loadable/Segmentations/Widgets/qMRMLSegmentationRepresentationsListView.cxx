@@ -131,7 +131,7 @@ void qMRMLSegmentationRepresentationsListView::setSegmentationNode(vtkMRMLNode* 
     return;
     }
 
-  qvtkReconnect( d->SegmentationNode, segmentationNode, vtkSegmentation::MasterRepresentationModified,
+  qvtkReconnect( d->SegmentationNode, segmentationNode, vtkSegmentation::SourceRepresentationModified,
                  this, SLOT( populateRepresentationsList() ) );
   qvtkReconnect( d->SegmentationNode, segmentationNode, vtkSegmentation::ContainedRepresentationNamesModified,
                  this, SLOT( populateRepresentationsList() ) );
@@ -161,7 +161,7 @@ void qMRMLSegmentationRepresentationsListView::populateRepresentationsList()
 
   d->setMessage(QString());
 
-  // Block signals so that onMasterRepresentationChanged function is not called when populating
+  // Block signals so that onSourceRepresentationChanged function is not called when populating
   QSignalBlocker blocker(d->RepresentationsList);
 
   d->RepresentationsList->clear();
@@ -199,15 +199,15 @@ void qMRMLSegmentationRepresentationsListView::populateRepresentationsList()
     nameLabel->setMinimumWidth(128);
     representationLayout->addWidget(nameLabel);
 
-    // Determine whether current representation is master or is present
-    bool master = !name.compare(segmentation->GetMasterRepresentationName().c_str());
+    // Determine whether current representation is source or is present
+    bool master = !name.compare(segmentation->GetSourceRepresentationName().c_str());
     bool present = segmentation->ContainsRepresentation(reprIt->c_str());
 
     // Status
     if (master)
       {
-      representationItem->setIcon(QIcon(":/Icons/Master.png"));
-      representationItem->setToolTip(tr("This is the master representation.\n  1. This representation is saved on disk\n  2. If this representation is modified, the others are cleared"));
+      representationItem->setIcon(QIcon(":/Icons/Source.png"));
+      representationItem->setToolTip(tr("This is the source representation.\n  1. This representation is saved on disk\n  2. If this representation is modified, the others are cleared"));
       }
     else if (present)
       {
@@ -232,8 +232,8 @@ void qMRMLSegmentationRepresentationsListView::populateRepresentationsList()
           {
           // Existing representations get an update button
           ctkMenuButton* updateButton = new ctkMenuButton(representationWidget);
-          updateButton->setText("Update");
-          QString updateButtonTooltip = QString("Update %1 representation using custom conversion parameters.\n\n"
+          updateButton->setText(tr("Update"));
+          QString updateButtonTooltip = tr("Update %1 representation using custom conversion parameters.\n\n"
             "Click the down-arrow button for additional operations.").arg(name);
           updateButton->setToolTip(updateButtonTooltip);
           updateButton->setProperty(REPRESENTATION_NAME_PROPERTY, QVariant(name));
@@ -244,8 +244,8 @@ void qMRMLSegmentationRepresentationsListView::populateRepresentationsList()
           updateButton->setMenu(updateMenu);
 
           // Set up actions for the update button
-          QAction* removeAction = new QAction("Remove", updateButton);
-          QString removeActionTooltip = QString("Remove %1 representation from segmentation").arg(name);
+          QAction* removeAction = new QAction(tr("Remove"), updateButton);
+          QString removeActionTooltip = tr("Remove %1 representation from segmentation").arg(name);
           removeAction->setToolTip(removeActionTooltip);
           removeAction->setProperty(REPRESENTATION_NAME_PROPERTY, QVariant(name));
           QObject::connect(removeAction, SIGNAL(triggered()), this, SLOT(removeRepresentation()));
@@ -254,19 +254,20 @@ void qMRMLSegmentationRepresentationsListView::populateRepresentationsList()
           representationLayout->addWidget(updateButton);
           }
 
-        QPushButton* makeMasterButton = new QPushButton(representationWidget);
-        makeMasterButton->setText("Make master");
-        makeMasterButton->setProperty(REPRESENTATION_NAME_PROPERTY, QVariant(name));
-        QObject::connect(makeMasterButton, SIGNAL(clicked()), this, SLOT(makeMaster()));
+        QPushButton* makeSourceButton = new QPushButton(representationWidget);
+        makeSourceButton->setText(tr("Make source"));
+        makeSourceButton->setProperty(REPRESENTATION_NAME_PROPERTY, QVariant(name));
+        QObject::connect(makeSourceButton, SIGNAL(clicked()), this, SLOT(makeSource()));
 
-        representationLayout->addWidget(makeMasterButton);
+        representationLayout->addWidget(makeSourceButton);
         }
       else
         {
         // Missing representations get a create button
         ctkMenuButton* createButton = new ctkMenuButton(representationWidget);
-        createButton->setText("Create");
-        QString convertButtonTooltip = QString("Create %1 representation using default conversion parameters.\n\nPress and hold button to access advanced conversion and removal options.").arg(name);
+        createButton->setText(tr("Create"));
+        QString convertButtonTooltip = tr("Create %1 representation using default conversion parameters.\n\n"
+          "Press and hold button to access advanced conversion and removal options.").arg(name);
         createButton->setToolTip(convertButtonTooltip);
         createButton->setProperty(REPRESENTATION_NAME_PROPERTY, QVariant(name));
         createButton->setMinimumWidth(createButton->sizeHint().width() + 10);
@@ -276,8 +277,8 @@ void qMRMLSegmentationRepresentationsListView::populateRepresentationsList()
         createButton->setMenu(createMenu);
 
         // Set up actions for the create button
-        QAction* advancedAction = new QAction("Advanced create...", createMenu);
-        QString advancedActionTooltip = QString("Create %1 representation using custom conversion parameters").arg(name);
+        QAction* advancedAction = new QAction(tr("Advanced create..."), createMenu);
+        QString advancedActionTooltip = tr("Create %1 representation using custom conversion parameters").arg(name);
         advancedAction->setToolTip(advancedActionTooltip);
         advancedAction->setProperty(REPRESENTATION_NAME_PROPERTY, QVariant(name));
         QObject::connect(advancedAction, SIGNAL(triggered()), this, SLOT(createRepresentationAdvanced()));
@@ -312,7 +313,7 @@ void qMRMLSegmentationRepresentationsListView::createRepresentationDefault()
   QApplication::setOverrideCursor(QCursor(Qt::BusyCursor));
   if (!d->SegmentationNode->GetSegmentation()->CreateRepresentation(representationName.toUtf8().constData()))
     {
-    QString message = QString("Failed to convert %1 to %2!\n\nProbably there is no valid conversion path between the master representation and %2").arg(d->SegmentationNode->GetName()).arg(representationName);
+    QString message = QString("Failed to convert %1 to %2!\n\nProbably there is no valid conversion path between the source representation and %2").arg(d->SegmentationNode->GetName()).arg(representationName);
     QMessageBox::warning(nullptr, tr("Conversion failed"), message);
     }
   QApplication::restoreOverrideCursor();
@@ -333,7 +334,7 @@ void qMRMLSegmentationRepresentationsListView::createRepresentationAdvanced()
   QWidget* mainWindow = app ? app->mainWindow() : nullptr;
   QDialog* parametersDialog = new QDialog(mainWindow, Qt::Dialog);
   parametersDialog->setObjectName("SegmentationConversionParametersWindow");
-  parametersDialog->setWindowTitle("Advanced segmentation conversion");
+  parametersDialog->setWindowTitle(tr("Advanced segmentation conversion"));
   QVBoxLayout* layout = new QVBoxLayout(parametersDialog);
 
   // Load last saved dialog position (the dialog may contain several options, so
@@ -392,7 +393,7 @@ void qMRMLSegmentationRepresentationsListView::removeRepresentation()
 }
 
 //-----------------------------------------------------------------------------
-void qMRMLSegmentationRepresentationsListView::makeMaster()
+void qMRMLSegmentationRepresentationsListView::makeSource()
 {
   Q_D(qMRMLSegmentationRepresentationsListView);
 
@@ -408,14 +409,14 @@ void qMRMLSegmentationRepresentationsListView::makeMaster()
 
   if (d->SegmentationNode->GetSegmentation()->GetNumberOfSegments() > 0)
     {
-    // Warn user about the consequences of changing master representation
+    // Warn user about the consequences of changing source representation
     QMessageBox::StandardButton answer =
-      QMessageBox::question(nullptr, tr("Confirm master representation change"),
-      tr("Changing master representation will make the 'gold standard' representation the selected one, "
+      QMessageBox::question(nullptr, tr("Confirm source representation change"),
+      tr("Changing source representation will make the 'gold standard' representation the selected one, "
       "and will result in deletion of all the other representations.\n"
-      "This may mean losing important data that cannot be created again from the new master representation.\n\n"
-      "(Reminder: Master representation is the data type which is saved to disk, and which is used as input when creating other representations)\n\n"
-      "Do you wish to proceed with changing master representation?"),
+      "This may mean losing important data that cannot be created again from the new source representation.\n\n"
+      "(Reminder: Source representation is the data type which is saved to disk, and which is used as input when creating other representations)\n\n"
+      "Do you wish to proceed with changing source representation?"),
       QMessageBox::Yes | QMessageBox::No, QMessageBox::No);
     if (answer != QMessageBox::Yes)
       {
@@ -423,6 +424,6 @@ void qMRMLSegmentationRepresentationsListView::makeMaster()
       }
     }
 
-  d->SegmentationNode->GetSegmentation()->SetMasterRepresentationName(representationName.toUtf8().constData());
+  d->SegmentationNode->GetSegmentation()->SetSourceRepresentationName(representationName.toUtf8().constData());
   this->populateRepresentationsList();
 }

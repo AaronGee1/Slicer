@@ -35,7 +35,6 @@
 #include "qSlicerApplication.h"
 #include "qSlicerErrorReportDialog.h"
 #include "qSlicerModuleManager.h"
-#include "vtkSlicerVersionConfigure.h" // For Slicer_VERSION_MAJOR,Slicer_VERSION_MINOR
 
 namespace
 {
@@ -290,7 +289,7 @@ void qSlicerAppMainWindow::on_HelpSearchFeatureRequestsAction_triggered()
 //---------------------------------------------------------------------------
 void qSlicerAppMainWindow::on_HelpViewLicenseAction_triggered()
 {
-  QDesktopServices::openUrl(QUrl("https://github.com/Slicer/Slicer/blob/master/License.txt"));
+  QDesktopServices::openUrl(QUrl("https://github.com/Slicer/Slicer/blob/main/License.txt"));
 }
 
 //---------------------------------------------------------------------------

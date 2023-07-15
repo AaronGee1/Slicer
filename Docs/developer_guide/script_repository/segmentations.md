@@ -3,8 +3,14 @@
 ### Load a 3D image or model file as segmentation
 
 ```python
+# Load segmentation from .seg.nrrd file (includes segment names and colors)
 slicer.util.loadSegmentation("c:/tmp/tmp/Segmentation.nrrd")
-slicer.util.loadSegmentation("c:/tmp/tmp/Segmentation.nii")
+
+# Create segmentation from a NIFTI + color table file
+colorNode = slicer.util.loadColorTable('c:/tmp/tmp/Segmentation-label_ColorTable.ctbl')
+slicer.util.loadSegmentation("c:/tmp/tmp/Segmentation.nii", {'colorNodeID': colorNode.GetID()})
+
+# Create segmentation from a STL file
 slicer.util.loadSegmentation("c:/tmp/Segment_1.stl")
 ```
 
@@ -93,6 +99,57 @@ def exportLabelmap():
 shortcut = qt.QShortcut(slicer.util.mainWindow())
 shortcut.setKey(qt.QKeySequence("Ctrl+Shift+s"))
 shortcut.connect( "activated()", exportLabelmap)
+```
+
+### Import/export labelmap node using custom label value mapping
+
+While in segmentation nodes segments are identified by segment ID, name, or terminology; in labelmap nodes a segment can be identified only by its label value.
+Slicer can import a labelmap volume into segmentation, visualize/edit the segmentation, then export the segmentation into labelmap volume - preserving the label values in the output. This is achieved by using a color node during labelmap node import and export, which assigns a name for each label value. Segment corresponding to a label value is found by matching the color name to the segment name.
+
+#### Create color table node
+
+A color table node can be loaded from a [color table file](/developer_guide/modules/colors.md#color-table-file-format-txt-ctbl) or created from scratch like this:
+
+```python
+segment_names_to_labels = [("ribs", 10), ("right lung", 12), ("left lung", 6)]
+
+colorTableNode = slicer.mrmlScene.CreateNodeByClass("vtkMRMLColorTableNode")
+colorTableNode.SetTypeToUser()
+colorTableNode.HideFromEditorsOff()  # make the color table selectable in the GUI outside Colors module
+slicer.mrmlScene.AddNode(colorTableNode); colorTableNode.UnRegister(None)
+largestLabelValue = max([name_value[1] for name_value in segment_names_to_labels])
+colorTableNode.SetNumberOfColors(largestLabelValue + 1)
+colorTableNode.SetNamesInitialised(True) # prevent automatic color name generation
+import random
+for segmentName, labelValue in segment_names_to_labels:
+    r = random.uniform(0.0, 1.0)
+    g = random.uniform(0.0, 1.0)
+    b = random.uniform(0.0, 1.0)
+    a = 1.0
+    success = colorTableNode.SetColor(labelValue, segmentName, r, g, b, a)
+```
+
+#### Export labelmap node from segmentation node using custom label value mapping
+
+```python
+segmentationNode = getNode('Segmentation')  # source segmentation node
+labelmapVolumeNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLLabelMapVolumeNode")  # export to new labelmap volume
+referenceVolumeNode = None # it could be set to the master volume
+segmentIds = segmentationNode.GetSegmentation().GetSegmentIDs()  # export all segments
+colorTableNode = ...  # created from scratch or loaded from file
+
+slicer.modules.segmentations.logic().ExportSegmentsToLabelmapNode(segmentationNode, segmentIds, labelmapVolumeNode, referenceVolumeNode, slicer.vtkSegmentation.EXTENT_REFERENCE_GEOMETRY, colorTableNode)
+```
+
+#### Import labelmap node into segmentation node using custom label value mapping
+
+```python
+labelmapVolumeNode = getNode('Volume-label')
+segmentationNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLSegmentationNode")  # import into new segmentation node
+colorTableNode = ...  # created from scratch or loaded from file
+
+labelmapVolumeNode.GetDisplayNode().SetAndObserveColorNodeID(colorTableNode.GetID())  # just in case the custom color table has not been already associated with the labelmap volume
+slicer.modules.segmentations.logic().ImportLabelmapToSegmentationNode(labelmapVolumeNode, segmentationNode)
 ```
 
 ### Export model nodes from segmentation node
@@ -311,6 +368,24 @@ segmentEditorWidget = slicer.modules.segmenteditor.widgetRepresentation().self()
 print(segmentEditorWidget.availableEffectNames())
 ```
 
+### Center all views on a segment
+
+This example shows how to center all slice views and 3D views on a segment. The segment's center is not the segment's centroid, but the centroid of the largest island in the effect, because the centroid can be in an empty region if the segment is made up of multiple islands.
+
+```python
+segmentationNode = getNode("Segmentation")
+segmentId = "Segment_2"
+
+position = segmentationNode.GetSegmentCenterRAS(segmentId)
+print(position)
+
+# Center slice views and cameras on this position
+for sliceNode in slicer.util.getNodesByClass('vtkMRMLSliceNode'):
+    sliceNode.JumpSliceByCentering(*position)
+for camera in slicer.util.getNodesByClass('vtkMRMLCameraNode'):
+    camera.SetFocalPoint(position)
+```
+
 ### Read and write a segment as a numpy array
 
 This example shows how to read and write voxels of binary labelmap representation of a segment as a numpy array.
@@ -390,7 +465,7 @@ slicer.modules.markups.logic().JumpSlicesToLocation(mean_Ras[0], mean_Ras[1], me
 # Generate example input data (volumeNode, segmentationNode, segmentId)
 ################################################
 
-# Load master volume
+# Load source volume
 import SampleData
 sampleDataLogic = SampleData.SampleDataLogic()
 volumeNode = sampleDataLogic.downloadMRBrainTumor1()
@@ -463,11 +538,11 @@ defaultSegmentEditorNode.SetOverwriteMode(slicer.vtkMRMLSegmentEditorNode.Overwr
 slicer.mrmlScene.AddDefaultNode(defaultSegmentEditorNode)
 ```
 
-To always make this the default, add the lines above to your [.slicerrc.py file](../user_guide/settings.md#application-startup-file).
+To always make this the default, add the lines above to your [.slicerrc.py file](/user_guide/settings.md#application-startup-file).
 
 ### How to run segment editor effects from a script
 
-Editor effects are complex because they need to handle changing master volumes, undo/redo, masking operations, etc. Therefore, it is recommended to use the effect by instantiating a qMRMLSegmentEditorWidget or use/extract processing logic of the effect and use that from a script.
+Editor effects are complex because they need to handle changing source volumes, undo/redo, masking operations, etc. Therefore, it is recommended to use the effect by instantiating a qMRMLSegmentEditorWidget or use/extract processing logic of the effect and use that from a script.
 
 #### Use Segment editor effects from script (qMRMLSegmentEditorWidget)
 
@@ -482,7 +557,7 @@ Examples:
 - [remove patient table from CT image](https://gist.github.com/lassoan/84d1f9a093dbb6a46c0fcc89279d8088)
 - [fill holes inside bones](https://gist.github.com/lassoan/0f45db8bae792ea19ccad36ceefbf52d)
 
-Description of effect parameters are available [here](modules/segmenteditor.md#effect-parameters).
+Description of effect parameters are available [here](/developer_guide/modules/segmenteditor.md#effect-parameters).
 
 #### Use logic of effect from a script
 
@@ -607,7 +682,7 @@ for segmentId in stats["SegmentIDs"]:
 
 #### Get size, position, and orientation of each segment
 
-Get oriented bounding box and display them using markups ROI node or legacy annotation ROI node.
+Get oriented bounding box and display them using markups ROI node.
 
 ##### Markups ROI
 
@@ -646,47 +721,6 @@ for segmentId in stats["SegmentIDs"]:
   boundingBoxToRasTransform = np.row_stack((np.column_stack((obb_direction_ras_x, obb_direction_ras_y, obb_direction_ras_z, obb_center_ras)), (0, 0, 0, 1)))
   boundingBoxToRasTransformMatrix = slicer.util.vtkMatrixFromArray(boundingBoxToRasTransform)
   roi.SetAndObserveObjectToNodeMatrix(boundingBoxToRasTransformMatrix)
-```
-
-##### Annotation ROI (legacy)
-
-```python
-segmentationNode = getNode("Segmentation")
-
-# Compute bounding boxes
-import SegmentStatistics
-segStatLogic = SegmentStatistics.SegmentStatisticsLogic()
-segStatLogic.getParameterNode().SetParameter("Segmentation", segmentationNode.GetID())
-segStatLogic.getParameterNode().SetParameter("LabelmapSegmentStatisticsPlugin.obb_origin_ras.enabled",str(True))
-segStatLogic.getParameterNode().SetParameter("LabelmapSegmentStatisticsPlugin.obb_diameter_mm.enabled",str(True))
-segStatLogic.getParameterNode().SetParameter("LabelmapSegmentStatisticsPlugin.obb_direction_ras_x.enabled",str(True))
-segStatLogic.getParameterNode().SetParameter("LabelmapSegmentStatisticsPlugin.obb_direction_ras_y.enabled",str(True))
-segStatLogic.getParameterNode().SetParameter("LabelmapSegmentStatisticsPlugin.obb_direction_ras_z.enabled",str(True))
-segStatLogic.computeStatistics()
-stats = segStatLogic.getStatistics()
-
-# Draw ROI for each oriented bounding box
-import numpy as np
-for segmentId in stats["SegmentIDs"]:
-  # Get bounding box
-  obb_origin_ras = np.array(stats[segmentId,"LabelmapSegmentStatisticsPlugin.obb_origin_ras"])
-  obb_diameter_mm = np.array(stats[segmentId,"LabelmapSegmentStatisticsPlugin.obb_diameter_mm"])
-  obb_direction_ras_x = np.array(stats[segmentId,"LabelmapSegmentStatisticsPlugin.obb_direction_ras_x"])
-  obb_direction_ras_y = np.array(stats[segmentId,"LabelmapSegmentStatisticsPlugin.obb_direction_ras_y"])
-  obb_direction_ras_z = np.array(stats[segmentId,"LabelmapSegmentStatisticsPlugin.obb_direction_ras_z"])
-  # Create ROI
-  segment = segmentationNode.GetSegmentation().GetSegment(segmentId)
-  roi=slicer.mrmlScene.AddNewNodeByClass("vtkMRMLAnnotationROINode")
-  roi.SetName(segment.GetName() + " bounding box")
-  roi.SetXYZ(0.0, 0.0, 0.0)
-  roi.SetRadiusXYZ(*(0.5*obb_diameter_mm))
-  # Position and orient ROI using a transform
-  obb_center_ras = obb_origin_ras+0.5*(obb_diameter_mm[0] * obb_direction_ras_x + obb_diameter_mm[1] * obb_direction_ras_y + obb_diameter_mm[2] * obb_direction_ras_z)
-  boundingBoxToRasTransform = np.row_stack((np.column_stack((obb_direction_ras_x, obb_direction_ras_y, obb_direction_ras_z, obb_center_ras)), (0, 0, 0, 1)))
-  boundingBoxToRasTransformMatrix = slicer.util.vtkMatrixFromArray(boundingBoxToRasTransform)
-  transformNode = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLTransformNode")
-  transformNode.SetAndObserveMatrixTransformToParent(boundingBoxToRasTransformMatrix)
-  roi.SetAndObserveTransformNodeID(transformNode.GetID())
 ```
 
 :::{note}

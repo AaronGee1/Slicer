@@ -27,7 +27,6 @@
 #include <qMRMLSliceWidget.h>
 
 // MRML includes
-#include <vtkMRMLAnnotationROINode.h>
 #include <vtkMRMLApplicationLogic.h>
 #include <vtkMRMLCropVolumeParametersNode.h>
 #include <vtkMRMLMarkupsROINode.h>
@@ -126,7 +125,7 @@ bool qSlicerCropVolumeModuleWidgetPrivate::checkInputs(bool& autoFixAvailable, Q
       && !this->ParametersNode->GetROINode()->GetParentTransformNode()->IsTransformToWorldLinear())
       {
       roiTransformValid = false;
-      problemsDescription << qSlicerCropVolumeModuleWidget::tr("Input ROI is under a non-linear tansform.");
+      problemsDescription << qSlicerCropVolumeModuleWidget::tr("Input ROI is under a non-linear transform.");
       }
     }
   else
@@ -139,7 +138,7 @@ bool qSlicerCropVolumeModuleWidgetPrivate::checkInputs(bool& autoFixAvailable, Q
     && !this->ParametersNode->GetOutputVolumeNode()->GetParentTransformNode()->IsTransformToWorldLinear())
     {
     outputVolumeTransformValid = false;
-    problemsDescription << qSlicerCropVolumeModuleWidget::tr("Output volume is under a non-linear tansform.");
+    problemsDescription << qSlicerCropVolumeModuleWidget::tr("Output volume is under a non-linear transform.");
     }
 
   // Non-interpolated cropping problem
@@ -150,7 +149,7 @@ bool qSlicerCropVolumeModuleWidgetPrivate::checkInputs(bool& autoFixAvailable, Q
       && !this->ParametersNode->GetInputVolumeNode()->GetParentTransformNode()->IsTransformToWorldLinear())
       {
       inputVolumeTransformValid = false;
-      problemsDescription << qSlicerCropVolumeModuleWidget::tr("Interpolation is disabled and input volume is under a non-linear tansform");
+      problemsDescription << qSlicerCropVolumeModuleWidget::tr("Interpolation is disabled and input volume is under a non-linear transform");
       }
     // Only report ROI errors, if ROI is valid (avoid overloading the user with too much info)
     if (roiExists && roiTransformValid && !vtkSlicerCropVolumeLogic::IsROIAlignedWithInputVolume(this->ParametersNode))
@@ -313,7 +312,6 @@ void qSlicerCropVolumeModuleWidget::enter()
 
     // Use first visible ROI node (or last ROI node, if all are invisible)
     vtkMRMLDisplayableNode* foundROINode = nullptr;
-    bool foundROINodeVisible = false;
     std::vector<vtkMRMLNode *> roiNodes;
 
     scene->GetNodesByClass("vtkMRMLMarkupsROINode", roiNodes);
@@ -327,29 +325,10 @@ void qSlicerCropVolumeModuleWidget::enter()
       foundROINode = roiNode;
       if (foundROINode->GetDisplayVisibility())
         {
-        foundROINodeVisible = true;
         break;
         }
       }
 
-    if (!foundROINodeVisible)
-      {
-      roiNodes.clear();
-      scene->GetNodesByClass("vtkMRMLAnnotationROINode", roiNodes);
-      for (unsigned int i = 0; i < roiNodes.size(); ++i)
-        {
-        vtkMRMLAnnotationROINode* roiNode = vtkMRMLAnnotationROINode::SafeDownCast(roiNodes[i]);
-        if (!roiNode)
-          {
-          continue;
-          }
-        foundROINode = roiNode;
-        if (foundROINode->GetDisplayVisibility())
-          {
-          break;
-          }
-        }
-      }
     if (foundROINode)
       {
       parametersNode->SetROINodeID(foundROINode->GetID());
@@ -487,7 +466,7 @@ void qSlicerCropVolumeModuleWidget::setInputROI(vtkMRMLNode* node)
     return;
     }
   vtkMRMLTransformableNode* roiNode = nullptr;
-  if (vtkMRMLAnnotationROINode::SafeDownCast(node) || vtkMRMLMarkupsROINode::SafeDownCast(node))
+  if (vtkMRMLMarkupsROINode::SafeDownCast(node))
     {
     roiNode = vtkMRMLTransformableNode::SafeDownCast(node);
     }

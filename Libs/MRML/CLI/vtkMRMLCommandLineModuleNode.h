@@ -47,7 +47,8 @@ public:
     {return "CommandLineModule";}
 
   /// List of events that can be fired on or by the node.
-  enum CLINodeEvent{
+  enum CLINodeEvent
+    {
     /// Event invoked anytime a parameter value is changed.
     /// \sa InputParameterModifiedEvent, SetParameterAsString(),
     /// SetParameterAsNode(), SetParameterAsInt(), SetParameterAsBool(),
@@ -64,7 +65,7 @@ public:
     AutoRunEvent,
     /// Event invoked when the CLI changes of status
     StatusModifiedEvent
-  };
+    };
 
   /// Get/Set the module description object. THe module description
   /// object is used to cache the current settings for the module.
@@ -73,7 +74,8 @@ public:
   std::string GetModuleDescriptionAsString() const;
   void SetModuleDescription(const ModuleDescription& description);
 
-  typedef enum {
+  enum StatusType
+    {
     /// Initial state of the CLI.
     Idle=0x00,
     /// State when the CLI has been requested to be executed.
@@ -98,7 +100,7 @@ public:
     CompletedWithErrors= Completed | ErrorsMask,
     /// Mask used to know if the CLI is in pending mode.
     BusyMask = Scheduled | Running | Cancelling | Completing
-  } StatusType;
+    };
 
   /// Set the status of the node (Idle, Scheduled, Running,
   /// Completed).  The "modify" parameter indicates whether the object
@@ -115,15 +117,37 @@ public:
   /// \sa GetStatus(), IsBusy()
   const char* GetStatusString() const;
 
-  /// Set output messages generated during latest execution.
-  void SetOutputText(const std::string& text, bool modify = true);
-  /// Set output messages generated during latest execution.
-  const std::string GetOutputText() const;
+  //@{
+  /// Start/stop continuous updating of output and error texts during execution.
+  ///
+  /// If ContinuousOutputUpdate is not active then output and error texts are only
+  /// updated when execution is completed. If continuous update is active, then
+  /// output and error texts are updated continuously, which may be useful
+  /// for close monitoring of the execution, but may impact the performance
+  /// if the process output is very long.
+  ///
+  /// Modified event is not invoked when the value is changed and
+  /// the value is not stored persistently in the scene file.
+  void StartContinuousOutputUpdate();
+  void EndContinuousOutputUpdate();
+  bool IsContinuousOutputUpdate();
+  //@}
 
-  /// Set error messages generated during latest execution.
+  //@{
+  /// Get/set output text generated during latest execution.
+  /// This value is not stored persistently in the scene file.
+  /// It is safe to call this method from a non-main thread (with modify=false).
+  void SetOutputText(const std::string& text, bool modify = true);
+  std::string GetOutputText() const;
+  //@}
+
+  //@{
+  /// Get/set error text generated during latest execution.
+  /// This value is not stored persistently in the scene file.
+  /// It is safe to call this method from a non-main thread (with modify=false).
   void SetErrorText(const std::string& text, bool modify = true);
-  /// Get error messages generated during latest execution.
-  const std::string GetErrorText() const;
+  std::string GetErrorText() const;
+  //@}
 
   /// Return true if the module is in a busy state: Scheduled, Running,
   /// Cancelling, Completing.
@@ -185,8 +209,8 @@ public:
   /// \sa AutoRunMode, SetAutoRunMode(), GetAutoRun(), GetAutoRunDelay()
   int GetAutoRunMode()const;
 
-  /// Set the number of msecs to wait before automatically running
-  /// the module. 1000msecs by default.
+  /// Set the delay (in milliseconds) to wait before automatically running
+  /// the module. 1000 ms by default.
   /// \sa GetAutoRunDelay(), SetAutoRun(), SetAutoRunMode()
   void SetAutoRunDelay(unsigned int delayInMs);
 
@@ -297,6 +321,8 @@ protected:
   void AbortProcess();
   void ProcessMRMLEvents(vtkObject *caller, unsigned long event,
                                  void *callData) override;
+
+  int ContinuousOutputUpdateInProgressCount{0};
 
 private:
   vtkMRMLCommandLineModuleNode();

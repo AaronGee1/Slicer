@@ -65,8 +65,6 @@
 #include "vtkSphereSource.h"
 #include "vtkTransform.h"
 #include "vtkTransformPolyDataFilter.h"
-#include "vtkTextMapper.h"
-#include "vtkTextProperty.h"
 #include "vtkTubeFilter.h"
 #include "vtkWindow.h"
 
@@ -448,7 +446,6 @@ class SliceIntersectionInteractionDisplayPipeline
 
         // Define cylinder size
         double cylinderLength = SLICEOFFSET_HANDLE_ARROW_LENGTH - coneLength * 2;
-        double cylinderRadius = SLICEOFFSET_HANDLE_ARROW_RADIUS;
 
         // Define cone positions to construct arrows
         double coneCenterR[3] = { handleOrientationDefault[0], handleOrientationDefault[1], handleOrientationDefault[2] };
@@ -1677,9 +1674,6 @@ void vtkMRMLSliceIntersectionInteractionRepresentation::ComputeSliceIntersection
     return;
     }
 
-  // XY to RAS
-  vtkMatrix4x4* xyToRAS = this->Internal->SliceNode->GetXYToRAS();
-
   // Get intersection point
   for (size_t slice1Index = 0; slice1Index < numberOfIntersections - 1; slice1Index++)
     {
@@ -1869,7 +1863,6 @@ std::string vtkMRMLSliceIntersectionInteractionRepresentation::CanInteract(vtkMR
       vtkNew<vtkMatrix4x4> rasToxyMatrix;
       vtkMatrix4x4::Invert(sliceNode->GetXYToRAS(), rasToxyMatrix);
 
-      bool handlePicked = false;
       double opacity = 0.0;
       HandleInfoList handleInfoList = this->GetHandleInfoList((*sliceIntersectionIt));
       for (HandleInfo handleInfo : handleInfoList)
@@ -1916,7 +1909,6 @@ std::string vtkMRMLSliceIntersectionInteractionRepresentation::CanInteract(vtkMR
               foundComponentType = handleInfo.ComponentType;
               foundComponentIndex = handleInfo.Index;
               intersectingSliceNodeID = handleInfo.IntersectingSliceNodeID;
-              handlePicked = true;
               }
             }
           else
@@ -1932,7 +1924,6 @@ std::string vtkMRMLSliceIntersectionInteractionRepresentation::CanInteract(vtkMR
       }
     else
       {
-      bool handlePicked = false;
       HandleInfoList handleInfoList = this->GetHandleInfoList((*sliceIntersectionIt));
       for (HandleInfo handleInfo : handleInfoList)
         {
@@ -1954,7 +1945,6 @@ std::string vtkMRMLSliceIntersectionInteractionRepresentation::CanInteract(vtkMR
             foundComponentType = handleInfo.ComponentType;
             foundComponentIndex = handleInfo.Index;
             intersectingSliceNodeID = handleInfo.IntersectingSliceNodeID;
-            handlePicked = true;
             }
           }
         else

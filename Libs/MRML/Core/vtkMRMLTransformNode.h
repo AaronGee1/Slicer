@@ -63,7 +63,7 @@ public:
     };
 
   ///
-  /// Returns 1 if transform is a non-composite linear tansform, 0 otherwise (if composite transform or non-linear transform)
+  /// Returns 1 if transform is a non-composite linear transform, 0 otherwise (if composite transform or non-linear transform)
   virtual int IsLinear();
 
   ///
@@ -120,22 +120,26 @@ public:
 
   ///
   /// Get concatenated transforms to world.
+  /// The method may change the PreMultiply/PostMultiply flag of the transform.
   /// \sa GetTransformBetweenNodes
   void GetTransformToWorld(vtkGeneralTransform* transformToWorld);
 
   ///
   /// Get concatenated transforms from world.
+  /// The method may change the PreMultiply/PostMultiply flag of the transform.
   /// \sa GetTransformBetweenNodes
-  void GetTransformFromWorld(vtkGeneralTransform* transformToWorld);
+  void GetTransformFromWorld(vtkGeneralTransform* transformFromWorld);
 
   ///
   /// Get concatenated transforms to the specified node.
+  /// The method may change the PreMultiply/PostMultiply flag of the transform.
   /// \sa GetTransformBetweenNodes
   void GetTransformToNode(vtkMRMLTransformNode* node,
                           vtkGeneralTransform* transformToNode);
 
   ///
   /// Get concatenated transforms from the specified node.
+  /// The method may change the PreMultiply/PostMultiply flag of the transform.
   /// \sa GetTransformBetweenNodes
   void GetTransformFromNode(vtkMRMLTransformNode* node,
                           vtkGeneralTransform* transformFromNode);
@@ -143,6 +147,7 @@ public:
   ///
   /// Get concatenated transforms from source to target node
   /// Source and target nodes are allowed to be nullptr, which means that transform is the world transform.
+  /// The method may change the PreMultiply/PostMultiply flag of the transform.
   static void GetTransformBetweenNodes(vtkMRMLTransformNode* sourceNode,
     vtkMRMLTransformNode* targetNode, vtkGeneralTransform* transformSourceToTarget);
 
@@ -180,12 +185,12 @@ public:
     vtkMRMLTransformNode* targetNode, vtkMatrix4x4* transformSourceToTarget);
 
   ///
-  /// Returns 1 if this node is one of the node's descendents
+  /// Returns 1 if this node is one of the node's descendants
   /// nullptr designates the world transform node and so always returns with 1.
   int IsTransformNodeMyParent(vtkMRMLTransformNode* node);
 
   ///
-  /// Returns 1 if the node is one of the this node's descendents
+  /// Returns 1 if the node is one of the this node's descendants
   int IsTransformNodeMyChild(vtkMRMLTransformNode* node);
 
   ///

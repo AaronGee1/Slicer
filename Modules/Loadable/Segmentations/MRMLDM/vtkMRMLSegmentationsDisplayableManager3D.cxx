@@ -568,7 +568,7 @@ void vtkMRMLSegmentationsDisplayableManager3D::vtkInternal::UpdateDisplayNodePip
     pipeline->Actor->GetProperty()->SetOpacity(
       hierarchyOpacity * properties.Opacity3D * displayNode->GetOpacity3D() * genericDisplayNode->GetOpacity());
 
-    pipeline->Actor->SetPickable(segmentationNode->GetSelectable());
+    pipeline->Actor->SetPickable(segmentationNode->GetSelectable() && properties.Pickable);
     if (genericDisplayNode->GetSelected())
       {
       pipeline->Actor->GetProperty()->SetAmbient(genericDisplayNode->GetSelectedAmbient());
@@ -935,7 +935,6 @@ int vtkMRMLSegmentationsDisplayableManager3D::Pick3D(double ras[3])
     return 0;
     }
 
-#if VTK_MAJOR_VERSION >= 9 || (VTK_MAJOR_VERSION >= 8 && VTK_MINOR_VERSION >= 2)
   if (this->Internal->CellPicker->Pick3DPoint(ras, ren))
     {
     // Find first picked segmentation and segment from picker
@@ -943,10 +942,6 @@ int vtkMRMLSegmentationsDisplayableManager3D::Pick3D(double ras[3])
     //   one that is picked and it may be of different type (volume, model, etc.)
     this->Internal->FindFirstPickedDisplayNodeFromPickerProp3Ds();
     }
-#else
-  vtkErrorMacro("Pick3D: This function is only accessible in newer VTK version");
-  (void)ras; // not used
-#endif
 
   return 1;
 }

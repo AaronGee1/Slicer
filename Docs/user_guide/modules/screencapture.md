@@ -8,9 +8,9 @@ This module is for creating videos, image sequences, or lightbox image from 3D a
 
 ### Input
 
-- **Master view:** This view will be changed during the animation (rotated, sweeped, etc.).
-- **Capture all views:** If enabled then all the view in the view layout will be captured. If disabled then only the master view will be captured. By capturing all views, it is possible to see the animated view (such as a moving slice) in 3D and in other slice views.
-- **Animation mode:** specifies how the master view will be modified during capture.
+- **Main view:** This view will be changed during the animation (rotated, sweeped, etc.).
+- **Capture all views:** If enabled then all the view in the view layout will be captured. If disabled then only the main view will be captured. By capturing all views, it is possible to see the animated view (such as a moving slice) in 3D and in other slice views.
+- **Animation mode:** specifies how the main view will be modified during capture.
   - **3D rotation:** Acquire video of a rotating 3D view. For smooth repeated display of a 360-degree rotation it is recommended to choose 31 or 61 as "Number of images".
   - **slice sweep:** Acquire video while going through selected range of image frames (for slice viewer only).
   - **slice fade:** Acquire video while fading between the foreground and background image (for slice viewer only).).
@@ -115,11 +115,11 @@ On Windows, Screen Capture model can automatically download and install ffmpeg w
 
 - [Animator](https://github.com/SlicerMorph/SlicerMorph/tree/master/Docs/Animator#readme) module in [SlicerMorph extension](https://slicermorph.github.io/) allows creating more complex animations, such as cutting through a volume (by changing region of interest), adjusting volume rendering transfer functions, or exploding view of complex model assembly.
 - [Scene Views](sceneviews.md) module can create snapshot of the entire scene content along with a screenshot, which are all saved in the scene.
-- [Annotations](annotations.md) module can create simple screenshots that are saved in the scene. Annotations module is being phased out and Screen Capture module's "Output volume node" feature can be used for saving screenshots in the scene.
+- Capture Toolbar allows creation simple screenshots that are saved in the scene. The feature may be removed in the future. Screen Capture module's "Output volume node" feature can be used for saving screenshots in the scene.
 
 ## Information for developers
 
-- This is a Python scripted module. Source code is available [here](https://github.com/Slicer/Slicer/blob/master/Modules/Scripted/ScreenCapture/ScreenCapture.py).
+- This is a Python scripted module. Source code is available [here](https://github.com/Slicer/Slicer/blob/main/Modules/Scripted/ScreenCapture/ScreenCapture.py).
 - Examples of capturing images are available in the [Script Repository](../../developer_guide/script_repository.md#screen-capture)
 
 ## Contributors

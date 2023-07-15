@@ -25,15 +25,10 @@
 #include "vtkOrientedImageData.h"
 
 // VTK includes
-#include <vtkVersion.h> // must precede reference to VTK_MAJOR_VERSION
 #include <vtkCompositeDataGeometryFilter.h>
 #include <vtkCompositeDataIterator.h>
 #include <vtkDecimatePro.h>
-#if VTK_MAJOR_VERSION >= 9 || (VTK_MAJOR_VERSION >= 8 && VTK_MINOR_VERSION >= 2)
-  #include <vtkDiscreteFlyingEdges3D.h>
-#else
-  #include <vtkDiscreteMarchingCubes.h>
-#endif
+#include <vtkDiscreteFlyingEdges3D.h>
 #include <vtkExtractSelectedThresholds.h>
 #include <vtkGeometryFilter.h>
 #include <vtkImageAccumulate.h>
@@ -74,15 +69,15 @@ vtkSegmentationConverterRuleNewMacro(vtkBinaryLabelmapToClosedSurfaceConversionR
 //----------------------------------------------------------------------------
 vtkBinaryLabelmapToClosedSurfaceConversionRule::vtkBinaryLabelmapToClosedSurfaceConversionRule()
 {
-  this->ConversionParameters[GetDecimationFactorParameterName()] = std::make_pair("0.0",
+  this->ConversionParameters->SetParameter(GetDecimationFactorParameterName(), "0.0",
     "Desired reduction in the total number of polygons. Range: 0.0 (no decimation) to 1.0 (as much simplification as possible)."
     " Value of 0.8 typically reduces data set size by 80% without losing too much details.");
-  this->ConversionParameters[GetSmoothingFactorParameterName()] = std::make_pair("0.5",
+  this->ConversionParameters->SetParameter(GetSmoothingFactorParameterName(), "0.5",
     "Smoothing factor. Range: 0.0 (no smoothing) to 1.0 (strong smoothing).");
-  this->ConversionParameters[GetComputeSurfaceNormalsParameterName()] = std::make_pair("1",
+  this->ConversionParameters->SetParameter(GetComputeSurfaceNormalsParameterName(), "1",
     "Compute surface normals. 1 (default) = surface normals are computed. "
     "0 = surface normals are not computed (slightly faster but produces less smooth surface display).");
-  this->ConversionParameters[GetJointSmoothingParameterName()] = std::make_pair("0",
+  this->ConversionParameters->SetParameter(GetJointSmoothingParameterName(), "0",
     "Perform joint smoothing.");
 }
 
@@ -155,8 +150,8 @@ bool vtkBinaryLabelmapToClosedSurfaceConversionRule::Convert(vtkSegment* segment
     return false;
     }
 
-  double smoothingFactor = vtkVariant(this->ConversionParameters[GetSmoothingFactorParameterName()].first).ToDouble();
-  int jointSmoothing = vtkVariant(this->ConversionParameters[GetJointSmoothingParameterName()].first).ToInt();
+  double smoothingFactor = this->ConversionParameters->GetValueAsDouble(GetSmoothingFactorParameterName());
+  int jointSmoothing = this->ConversionParameters->GetValueAsInt(GetJointSmoothingParameterName());
 
   if (jointSmoothing > 0 && smoothingFactor > 0)
     {
@@ -290,15 +285,11 @@ bool vtkBinaryLabelmapToClosedSurfaceConversionRule::CreateClosedSurface(vtkOrie
   binaryLabelmapWithIdentityGeometry->SetSpacing(1.0, 1.0, 1.0);
 
   // Get conversion parameters
-  double decimationFactor = vtkVariant(this->ConversionParameters[GetDecimationFactorParameterName()].first).ToDouble();
-  double smoothingFactor = vtkVariant(this->ConversionParameters[GetSmoothingFactorParameterName()].first).ToDouble();
-  int computeSurfaceNormals = vtkVariant(this->ConversionParameters[GetComputeSurfaceNormalsParameterName()].first).ToInt();
+  double decimationFactor = this->ConversionParameters->GetValueAsDouble(GetDecimationFactorParameterName());
+  double smoothingFactor = this->ConversionParameters->GetValueAsDouble(GetSmoothingFactorParameterName());
+  int computeSurfaceNormals = this->ConversionParameters->GetValueAsInt(GetComputeSurfaceNormalsParameterName());
 
-#if VTK_MAJOR_VERSION >= 9 || (VTK_MAJOR_VERSION >= 8 && VTK_MINOR_VERSION >= 2)
   vtkNew<vtkDiscreteFlyingEdges3D> marchingCubes;
-#else
-  vtkNew<vtkDiscreteMarchingCubes> marchingCubes;
-#endif
   marchingCubes->SetInputData(binaryLabelmapWithIdentityGeometry);
   marchingCubes->ComputeGradientsOff();
   marchingCubes->ComputeNormalsOff(); // While computing normals is faster using the flying edges filter,

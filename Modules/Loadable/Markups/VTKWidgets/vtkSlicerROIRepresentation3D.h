@@ -44,7 +44,7 @@ class vtkLookupTable;
 class vtkMRMLInteractionEventData;
 class vtkMRMLMarkupsROINode;
 class vtkOutlineFilter;
-class vtkPassThroughFilter;
+class vtkPassThrough;
 class vtkPlaneSource;
 class vtkPolyDataAlgorithm;
 class vtkPolyDataMapper;
@@ -65,7 +65,7 @@ public:
   /// Subclasses of vtkMRMLAbstractWidgetRepresentation must implement these methods. These
   /// are the methods that the widget and its representation use to
   /// communicate with each other.
-  void UpdateFromMRML(vtkMRMLNode* caller, unsigned long event, void *callData=nullptr) override;
+  void UpdateFromMRMLInternal(vtkMRMLNode* caller, unsigned long event, void *callData=nullptr) override;
 
   /// Updates the dimensions of the cube source filter
   virtual void UpdateCubeSourceFromMRML(vtkMRMLMarkupsROINode* roiNode);
@@ -79,7 +79,7 @@ public:
   vtkTypeBool HasTranslucentPolygonalGeometry() override;
 
   /// Return the bounds of the representation
-  double *GetBounds() override;
+  double* GetBounds() VTK_SIZEHINT(6) override;
 
   void CanInteract(vtkMRMLInteractionEventData* interactionEventData,
     int& foundComponentType, int& foundComponentIndex, double& closestDistance2) override;
@@ -101,7 +101,7 @@ protected:
 
   vtkSmartPointer<vtkPolyDataAlgorithm> ROISource;
 
-  vtkSmartPointer<vtkPassThroughFilter> ROIPipelineInputFilter;
+  vtkSmartPointer<vtkPassThrough> ROIPipelineInputFilter;
 
   vtkSmartPointer<vtkTransformPolyDataFilter>    ROITransformFilter;
   vtkSmartPointer<vtkTransform>                  ROIToWorldTransform;

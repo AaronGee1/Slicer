@@ -28,6 +28,7 @@
 #include <QDesktopWidget>
 #include <QMouseEvent>
 #include <QLabel>
+#include <QScreen>
 
 // SubjectHierarchy includes
 #include "qMRMLSubjectHierarchyComboBox.h"
@@ -109,7 +110,7 @@ void qMRMLSubjectHierarchyComboBoxPrivate::init()
   // Make connections
   QObject::connect(this->TreeView, SIGNAL(currentItemChanged(vtkIdType)),
                    q, SLOT(updateComboBoxTitleAndIcon(vtkIdType)));
-  QObject::connect(this->TreeView, SIGNAL(currentItemChanged(vtkIdType)),
+  QObject::connect(this->TreeView, SIGNAL(pressed(QModelIndex)),
                    q, SLOT(hidePopup()));
   QObject::connect(this->TreeView, SIGNAL(currentItemModified(vtkIdType)),
                    q, SLOT(updateComboBoxTitleAndIcon(vtkIdType)));
@@ -255,17 +256,17 @@ void qMRMLSubjectHierarchyComboBox::setHighlightReferencedItems(bool highlightOn
 }
 
 //--------------------------------------------------------------------------
-void qMRMLSubjectHierarchyComboBox::setPluginWhitelist(QStringList whitelist)
+void qMRMLSubjectHierarchyComboBox::setPluginAllowlist(QStringList allowlist)
 {
   Q_D(qMRMLSubjectHierarchyComboBox);
-  d->TreeView->setPluginWhitelist(whitelist);
+  d->TreeView->setPluginAllowlist(allowlist);
 }
 
 //--------------------------------------------------------------------------
-void qMRMLSubjectHierarchyComboBox::setPluginBlacklist(QStringList blacklist)
+void qMRMLSubjectHierarchyComboBox::setPluginBlocklist(QStringList blocklist)
 {
   Q_D(qMRMLSubjectHierarchyComboBox);
-  d->TreeView->setPluginBlacklist(blacklist);
+  d->TreeView->setPluginBlocklist(blocklist);
 }
 
 //--------------------------------------------------------------------------
@@ -560,7 +561,11 @@ void qMRMLSubjectHierarchyComboBox::showPopup()
 
   QRect listRect(this->style()->subControlRect(QStyle::CC_ComboBox, &opt,
                                                QStyle::SC_ComboBoxListBoxPopup, this));
+#if (QT_VERSION >= QT_VERSION_CHECK(5, 14, 0))
+  QRect screen = this->screen()->availableGeometry();
+#else
   QRect screen = QApplication::desktop()->availableGeometry(QApplication::desktop()->screenNumber(this));
+#endif
   QPoint below = mapToGlobal(listRect.bottomLeft());
   QPoint above = mapToGlobal(listRect.topLeft());
 
@@ -608,18 +613,16 @@ void qMRMLSubjectHierarchyComboBox::showPopup()
     // Add tree view margins for the height
     // NB: not needed for the width as the item labels will be cropped
     // without displaying an horizontal scroll bar
-    int tvMarginLeft, tvMarginTop, tvMarginRight, tvMarginBottom;
-    d->TreeView->getContentsMargins(&tvMarginLeft, &tvMarginTop, &tvMarginRight, &tvMarginBottom);
-    popupHeight += tvMarginTop + tvMarginBottom;
+    QMargins tvMargins = d->TreeView->contentsMargins();
+    popupHeight += tvMargins.top() + tvMargins.bottom();
 
     d->NoItemLabel->hide();
     d->TreeView->show();
     }
 
   // Add container margins for the height
-  int marginLeft, marginTop, marginRight, marginBottom;
-  container->getContentsMargins(&marginLeft, &marginTop, &marginRight, &marginBottom);
-  popupHeight += marginTop + marginBottom;
+  QMargins margins = container->contentsMargins();
+  popupHeight += margins.top() + margins.bottom();
 
   // Position of the container
   if(d->AlignPopupVertically)
@@ -748,7 +751,10 @@ void qMRMLSubjectHierarchyComboBox::updateComboBoxTitleAndIcon(vtkIdType selecte
     }
   else
     {
-    qCritical() << Q_FUNC_INFO << ": No owner plugin for subject hierarchy item " << shNode->GetItemName(selectedShItemID).c_str();
+    if (selectedShItemID != shNode->GetSceneItemID())
+      {
+      qCritical() << Q_FUNC_INFO << ": No owner plugin for subject hierarchy item " << shNode->GetItemName(selectedShItemID).c_str();
+      }
     this->setDefaultIcon(QIcon());
     }
 }

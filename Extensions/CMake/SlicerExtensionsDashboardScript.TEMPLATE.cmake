@@ -16,9 +16,9 @@ dashboard_set(HOSTNAME              "karakoram")
 dashboard_set(OPERATING_SYSTEM      "Linux")
 dashboard_set(SCRIPT_MODE           "Experimental")   # Experimental, Continuous or Nightly
 dashboard_set(Slicer_RELEASE_TYPE   "Experimental")   # (E)xperimental, (P)review or (S)table
-dashboard_set(EXTENSIONS_INDEX_BRANCH "master")       # "master", X.Y, ...
+dashboard_set(EXTENSIONS_INDEX_BRANCH "main")       # "main", X.Y, ...
 if(APPLE)
-  dashboard_set(CMAKE_OSX_DEPLOYMENT_TARGET "10.13")
+  dashboard_set(CMAKE_OSX_DEPLOYMENT_TARGET "11.0")
 endif()
 dashboard_set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
 dashboard_set(COMPILER              "g++-X.Y.Z")      # Used only to set the build name
@@ -59,7 +59,7 @@ set(ADDITIONAL_CMAKECACHE_OPTION "
 ##########################################
 set(EXTENSIONS_TRACK_QUALIFIER ${EXTENSIONS_INDEX_BRANCH})
 if(NOT DEFINED DRIVER_SCRIPT)
-  set(url https://raw.githubusercontent.com/Slicer/Slicer/master/Extensions/CMake/SlicerExtensionsDashboardDriverScript.cmake)
+  set(url https://raw.githubusercontent.com/Slicer/Slicer/main/Extensions/CMake/SlicerExtensionsDashboardDriverScript.cmake)
   set(dest ${DASHBOARDS_DIR}/${EXTENSION_DASHBOARD_SUBDIR}/${CTEST_SCRIPT_NAME}.driver)
   file(DOWNLOAD ${url} ${dest} STATUS status)
   if(NOT status MATCHES "0.*")

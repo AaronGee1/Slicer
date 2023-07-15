@@ -11,6 +11,8 @@ The Segmentations module manages segmentations. Each segmentation can contain mu
 
 Motivation, features, and details of the infrastructure are explained in paper *Cs. Pinter, A. Lasso, G. Fichtinger, "Polymorph segmentation representation for medical image computing", Computer Methods and Programs in Biomedicine, Volume 171, p19-26, 2019* ([pdf](http://perk.cs.queensu.ca/sites/perkd7.cs.queensu.ca/files/Pinter2019_Manuscript.pdf), [DOI](https://doi.org/10.1016/j.cmpb.2019.02.011)) and in presentation slides ([pdf](https://www.slicer.org/wiki/File:20160526_Segmentations.pdf), [pptx](https://www.slicer.org/wiki/File:20160526_Segmentations.pptx)).
 
+![](https://github.com/Slicer/Slicer/releases/download/docs-resources/image_segmentation_segmentations_module.png)
+
 ## Use cases
 
 ### Edit segmentation
@@ -22,9 +24,16 @@ Segmentation can be edited using [Segment Editor](segmenteditor.md) module.
 3D volumes in NRRD (.nrrd or .nhdr) and Nifti (.nii or .nii.gz) file formats can be directly loaded as segmentation:
 - Drag-and-drop the volume file to the application window (or use menu: `File` / `Add Data`, then select the file)
 - In `Description` column choose `Segmentation`
+- Optional: if a color table (specifying name and color for each label value) is available then load that first into the application and then select it as `Color node` in the `Options` section. Specification of the color table file format is available [here](../../developer_guide/modules/colors.md#color-table-file-format-txt-ctbl).
 - Click `OK`
 
-Other volume file formats can be loaded as labelmap volume and then converted to segmentation node:
+:::{tip}
+
+To avoid the need to always manually select `Segmentation`, save the `.nrrd` file using the `.seg.nrrd` file extension. It makes Slicer load the image as a segmentation by default.
+
+:::
+
+Other image file formats can be loaded as labelmap volume and then converted to segmentation:
 - Drag-and-drop the volume file to the application window (or use menu: `File` / `Add Data`, then select the file)
 - Click `Show Options`
 - In `Options` column check `LabelMap` checkbox (to indicate that the volume is a labelmap, not a grayscale image)
@@ -32,7 +41,11 @@ Other volume file formats can be loaded as labelmap volume and then converted to
 - Go to `Data` module, `Subject hierarchy` tab
 - Right-click on the name of the imported volume and choose `Convert labelmap to segmentation node`
 
-Tip: To show the segmentation in 3D, go to `Segmentations` module and in `Representations` section, `Closed surface` row, click `Create`. Or, during segment editing in `Segment Editor` module click`Show 3D` button to show/hide segmentation in 3D.
+:::{tip}
+
+To show the segmentation in 3D, go to `Segmentations` module and click `Show 3D`. Alternatively, go to `Data` module and drag-and-drop the segmentation into each view where you want to see them - if the segmentation is dragged into a 3D view then it will be shown there in 3D.
+
+:::
 
 ### Import an existing segmentation from model (surface mesh) file
 
@@ -57,15 +70,15 @@ Other mesh file formats can be loaded as model and then converted to segmentatio
 
 ### Editing a segmentation imported from model (surface mesh) file
 
-Selection of a `master volume` is required for editing a segmentation. The master volume specifies the geometry (origin, spacing, axis directions, and extents) of the voxel grid that is used during editing.
+Selection of a `source volume` is required for editing a segmentation. The source volume specifies the geometry (origin, spacing, axis directions, and extents) of the voxel grid that is used during editing.
 
 If no volume is available then it can be created by the following steps:
 - Go to `Segment editor` module
-- Click `Specify geometry` button (on the right side of `Master volume` node selector)
+- Click `Specify geometry` button (on the right side of `Source volume` node selector)
 - For `Source geometry` choose the segmentation (this specifies the extents, i.e., the bounding box so that the complete object is included)
 - Adjust `Spacing` values as needed. It is recommended to set the same value for all three axes. Using smaller values preserve more details but at the cost of increased memory usage and computation time.
 - Click `OK`
-- When an editing operation is started then the Segment Editor will ask if the master representation should be changed to binary labelmap. Answer `Yes`, because binary labelmap representation is required for editing.
+- When an editing operation is started then the Segment Editor will ask if the source representation should be changed to binary labelmap. Answer `Yes`, because binary labelmap representation is required for editing.
 
 :::{note}
 
@@ -98,14 +111,14 @@ For advanced export options, `Segmentations` module's `Export/import models and 
 
 ### Export segmentation to labelmap volume file
 
-If master representation of a a segmentation node is binary labelmap then the segmentation will be saved in standard NRRD file format. This is the recommended way of saving segmentation volumes, as it saves additional metadata (segment names, colors, DICOM terminology) in the image file in custom fields and allows saving of overlapping segments.
+If source representation of a a segmentation node is binary labelmap then the segmentation will be saved in standard NRRD file format. This is the recommended way of saving segmentation volumes, as it saves additional metadata (segment names, colors, DICOM terminology) in the image file in custom fields and allows saving of overlapping segments.
 
 For exporting segmentation as NRRD or NIFTI file for external software that uses 3D labelmap volume file + color table file for segmentation storage:
 
 - Open `Export to files` section in `Segmentations` module (or in `Segment editor` module: choose `Export to files`, in the drop-down menu of `Segmentations` button)
 - In `File format` selector choose `NRRD` or `NIFTI`. NRRD format is recommended, as it is a simple, general-purpose file format. For neuroimaging, NIFTI file format may be a better choice, as it is the most commonly used research file format in that field.
 - Optional: choose Reference volume if you want your segmentation to match a selected volume's geometry (origin, spacing, axis directions) instead of the current segmentation geometry
-- Optional: check `Use color table values` checkbox and select a color table to set voxel values in the exported files from values specified in the color table. Without that, voxel values are based on the order of segments in the segmentation node.
+- Optional: check `Use color table values` checkbox and select a color table to set voxel values in the exported files from values specified in the color table. The label value is index of the color table entry that has the same name as the segment name. If a color table is not specified then, voxel values are based on the order of segments in the segment list (voxels that are outside of all segments are set to 0, voxels of the first segment are set to  1, voxels of the second segment are set to 2, etc).
 - Set additional options (destination folder, compression, etc.) as needed
 - Click `Export`
 
@@ -115,10 +128,10 @@ Using a reference volume for labelmap export may result in the segmentation bein
 
 ### Create new representation in segmentation (conversion)
 
-The supported representations are listed in the Representations section. Existing representations are marked with a green tick, the master representation is marked with a gold star. The master representation is the editable (for example, in Segment Editor module) and it is the source of all conversions.
+The supported representations are listed in the Representations section. Existing representations are marked with a green tick, the source representation is marked with a gold star. The source representation is the editable (for example, in Segment Editor module) and it is the source of all conversions.
 
 - To create a representation, click on the Create button in the corresponding row. To specify a custom conversion path or parameters (reference geometry for labelmaps, smoothing for surfaces, etc.), click the down-arrow button in the "Create" button and choose "Advanced create...", then choose a conversion path from the list at the top, and adjust the conversion parameters in the section at the bottom.
-- To update a representation (re-create from the master representation) using custom conversion path or parameters, click the "Update" button in the corresponding row.
+- To update a representation (re-create from the source representation) using custom conversion path or parameters, click the "Update" button in the corresponding row.
 - To remove a representation, click the down-arrow button in the "Update" button then choose "Remove".
 
 ### Adjust how segments are displayed
@@ -131,7 +144,7 @@ The supported representations are listed in the Representations section. Existin
 See Script repository's [Segmentations section](../../developer_guide/script_repository.md#segmentations) for examples.
 
 ### DICOM export
-- The master representation is used when exporting into DICOM, therefore you need to select a master volume, create binary labelmap representation and set it as master
+- The source representation is used when exporting into DICOM, therefore you need to select a source volume, create binary labelmap representation and set it as master
 - DICOM Segmentation Object export if `QuantitativeReporting` extension is installed
 - Legacy DICOM RT structure set export is available if `SlicerRT` extension is installed. RT structure sets are not recommended for storing segmentations, as they cannot store arbitrarily complex 3D shapes.
 - Follow [these instructions](dicom.md#export-data-from-the-scene-to-dicom-database) for exporting data in DICOM format.
@@ -149,10 +162,10 @@ See Script repository's [Segmentations section](../../developer_guide/script_rep
     - Representation in 3D/2D views: The representation to be shown in the 3D and 2D views. Useful if there are multiple representations available, for example if we want to show the closed surface in the 3D view but the labelmap in the slice views
 - Representations
     - List of supported representations and related operations
-    - The already existing representations have a green tick, the master representation (that is the source of all conversions and the representation that can be edited) a gold star
+    - The already existing representations have a green tick, the source representation (that is the source of all conversions and the representation that can be edited) a gold star
     - The buttons in each row can be used to create, remove, update a representation
         - Advanced conversion is possible (to use the non-default path or conversion parameters) by long-pressing the Create or Update button
-        - Existing representations can be made master by clicking Make master. The master representation is used as source for conversions, it is the one that can be edited, and saved to disk
+        - Existing representations can be made master by clicking Make source. The source representation is used as source for conversions, it is the one that can be edited, and saved to disk
 - Copy/move (import/export)
     - Left panel lists the segments in the active segmentation
     - Right panel shows the external data container
@@ -173,11 +186,14 @@ See Script repository's [Segmentations section](../../developer_guide/script_rep
 
 - [Segmentation tutorials](https://www.slicer.org/wiki/Documentation/Nightly/Training#Segmentation)
 
+## Limitations
+
+- When segmentation is displayed in 2D views using `Closed surface` representation (either because this is the only available representation or because this representation is chosen to be shown in `Segmentations` module: `Display` / `Advanced` / `Representation in 2D views` -> `Closed surface`) then filling of the contours may appear incomplete and/or inverted. This is just a rendering error and does not affect the segmentation content. To avoid seeing such rendering artifacts, create `Binary labelmap` representation and choose `Representation in 2D views` -> `Binary labelmap`.
+
 ## Information for developers
 
-
-- [vtkSegmentationCore on GitHub](https://github.com/Slicer/Slicer/tree/master/Libs/vtkSegmentationCore) (within Slicer)
-- [Segmentations Slicer module on GitHub](https://github.com/Slicer/Slicer/tree/master/Modules/Loadable/Segmentations)
+- [vtkSegmentationCore on GitHub](https://github.com/Slicer/Slicer/tree/main/Libs/vtkSegmentationCore) (within Slicer)
+- [Segmentations Slicer module on GitHub](https://github.com/Slicer/Slicer/tree/main/Modules/Loadable/Segmentations)
 - [Segmentations Labs page](https://www.slicer.org/wiki/Documentation/Labs/Segmentations)
 - [Manipulation of segmentations from Python scripts - examples in script repository](../../developer_guide/script_repository.md#segmentations)
 

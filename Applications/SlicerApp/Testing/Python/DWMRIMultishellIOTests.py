@@ -3,34 +3,33 @@ import re
 import sys
 from collections import namedtuple
 
-import nose
 import numpy as np
 from vtk.util import numpy_support
 
 import slicer
 
-#===============================================================================
+# ===============================================================================
 
 mrmlcore_testdata_path = "Libs/MRML/Core/Testing/TestData/"
 
 
 multishell_dwi_451 = os.path.join(mrmlcore_testdata_path, "multishell-DWI-451dir.nhdr")
 
-#================================================================================
+# ================================================================================
 NRRD = namedtuple('NRRD', ['header', 'bvalue', 'gradients'])
 
 
 def parse_nhdr(path):
-    dwmri_bval_key      = "DWMRI_b-value"
-    dwmri_grad_keybase  = "DWMRI_gradient_"
-    dwmri_grad_key_n    = "DWMRI_gradient_{:04d}"
+    dwmri_bval_key = "DWMRI_b-value"
+    dwmri_grad_keybase = "DWMRI_gradient_"
+    dwmri_grad_key_n = "DWMRI_gradient_{:04d}"
 
     kvdict = {}
     grad_count = 0
 
     with open(path) as f:
         magic = f.readline().strip()
-        assert(magic == "NRRD0005")
+        assert magic == "NRRD0005"
 
         while True:
             line = f.readline()
@@ -40,13 +39,13 @@ def parse_nhdr(path):
 
             # careful about precedence -- ":=" must match first
             key, val = (x.strip() for x in re.split(":=|=|:", line))
-            assert(key not in kvdict)
+            assert key not in kvdict
             kvdict[key] = val
 
             if key.startswith(dwmri_grad_keybase):
-                _gn = int(key[ len(dwmri_grad_keybase):None ])
+                _gn = int(key[len(dwmri_grad_keybase):None])
                 # monotonic keys
-                assert( _gn == grad_count ) # offset
+                assert _gn == grad_count  # offset
                 grad_count += 1
 
         bvalue = float(kvdict[dwmri_bval_key])
@@ -60,13 +59,13 @@ def parse_nhdr(path):
     return NRRD(header=kvdict, bvalue=bvalue, gradients=grads)
 
 
-#================================================================================
+# ================================================================================
 def normalize(vec):
     norm = np.linalg.norm(vec)
     if norm == 0.0:
         return vec
     else:
-        return vec * 1/norm
+        return vec * 1 / norm
 
 
 def test_nrrd_dwi_load(first_file, second_file=None):
@@ -94,14 +93,14 @@ def test_nrrd_dwi_load(first_file, second_file=None):
     ##################################
     # 1) check the number of gradients
 
-    assert( len(parsed_nrrd.gradients) == slicer_numgrads )
+    assert len(parsed_nrrd.gradients) == slicer_numgrads
 
     ##################################
     # 2) check the node b values and gradients are correct
 
     # Note: vtkDataArray.GetMaxNorm gives max for scalar array.
     # max b value from the node
-    nose.tools.assert_equal(parsed_nrrd.bvalue, dw_node.GetBValues().GetMaxNorm())
+    assert parsed_nrrd.bvalue == dw_node.GetBValues().GetMaxNorm()
 
     max_parsed_grad_norm = np.max(np.apply_along_axis(np.linalg.norm, 1, parsed_nrrd.gradients))
 
@@ -126,7 +125,7 @@ def test_nrrd_dwi_load(first_file, second_file=None):
     for i in range(0, slicer_numgrads):
         grad_key = f"DWMRI_gradient_{i:04d}"
         parsed_gradient = np.fromstring(parsed_nrrd.header[grad_key], count=3, sep=' ', dtype=np.float64)
-        attr_gradient =   np.fromstring(dw_node.GetAttribute(grad_key), count=3, sep=' ', dtype=np.float64)
+        attr_gradient = np.fromstring(dw_node.GetAttribute(grad_key), count=3, sep=' ', dtype=np.float64)
 
         np.testing.assert_array_almost_equal(parsed_gradient, attr_gradient, decimal=12,
                                              err_msg="NHDR gradient does not match gradient in node attribute dictionary")

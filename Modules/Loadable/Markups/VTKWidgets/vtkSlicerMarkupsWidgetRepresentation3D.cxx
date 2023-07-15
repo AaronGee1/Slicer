@@ -44,6 +44,7 @@
 #include "vtkTransformPolyDataFilter.h"
 
 // MRML includes
+#include <vtkMRMLApplicationLogic.h>
 #include <vtkMRMLFolderDisplayNode.h>
 #include <vtkMRMLInteractionEventData.h>
 #include <vtkMRMLViewNode.h>
@@ -679,12 +680,12 @@ void vtkSlicerMarkupsWidgetRepresentation3D::CanInteractWithLine(
 }
 
 //----------------------------------------------------------------------
-void vtkSlicerMarkupsWidgetRepresentation3D::UpdateFromMRML(vtkMRMLNode* caller, unsigned long event, void *callData /*=nullptr*/)
+void vtkSlicerMarkupsWidgetRepresentation3D::UpdateFromMRMLInternal(vtkMRMLNode* caller, unsigned long event, void *callData /*=nullptr*/)
 {
   this->UpdateViewScaleFactor();
   this->UpdateControlPointSize();
 
-  Superclass::UpdateFromMRML(caller, event, callData);
+  Superclass::UpdateFromMRMLInternal(caller, event, callData);
 
   vtkMRMLMarkupsNode* markupsNode = this->GetMarkupsNode();
   if (!markupsNode || !this->IsDisplayable())
@@ -713,6 +714,10 @@ void vtkSlicerMarkupsWidgetRepresentation3D::UpdateFromMRML(vtkMRMLNode* caller,
     controlPoints->Property->SetOpacity(opacity);
 
     controlPoints->TextProperty->ShallowCopy(this->MarkupsDisplayNode->GetTextProperty());
+    if (this->GetApplicationLogic())
+      {
+      this->GetApplicationLogic()->UseCustomFontFile(controlPoints->TextProperty);
+      }
     controlPoints->TextProperty->SetColor(color);
     controlPoints->TextProperty->SetOpacity(opacity);
     controlPoints->TextProperty->SetFontSize(static_cast<int>(this->MarkupsDisplayNode->GetTextProperty()->GetFontSize()
@@ -1311,7 +1316,6 @@ double vtkSlicerMarkupsWidgetRepresentation3D::GetViewScaleFactorAtPosition(doub
       }
     else
       {
-#if VTK_MAJOR_VERSION >= 9
       std::copy(std::begin(topCenterWorld), std::end(topCenterWorld), std::begin(topCenterDisplay));
       this->Renderer->WorldToDisplay(topCenterDisplay[0], topCenterDisplay[1], topCenterDisplay[2]);
       topCenterDisplay[2] = 0.0;
@@ -1319,17 +1323,6 @@ double vtkSlicerMarkupsWidgetRepresentation3D::GetViewScaleFactorAtPosition(doub
       std::copy(std::begin(bottomCenterWorld), std::end(bottomCenterWorld), std::begin(bottomCenterDisplay));
       this->Renderer->WorldToDisplay(bottomCenterDisplay[0], bottomCenterDisplay[1], bottomCenterDisplay[2]);
       bottomCenterDisplay[2] = 0.0;
-#else
-      this->Renderer->SetWorldPoint(topCenterWorld);
-      this->Renderer->WorldToDisplay();
-      this->Renderer->GetDisplayPoint(topCenterDisplay);
-      topCenterDisplay[2] = 0.0;
-
-      this->Renderer->SetWorldPoint(bottomCenterWorld);
-      this->Renderer->WorldToDisplay();
-      this->Renderer->GetDisplayPoint(bottomCenterDisplay);
-      bottomCenterDisplay[2] = 0.0;
-#endif
       }
 
     const double distInPixels = sqrt(vtkMath::Distance2BetweenPoints(topCenterDisplay, bottomCenterDisplay));

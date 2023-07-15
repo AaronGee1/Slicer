@@ -50,10 +50,10 @@ public:
   QString description()const override;
   IOFileType fileType()const override;
 
-  /// Return true if the object is handled by the writer.
+  /// Return true if this class can write the input object.
   bool canWriteObject(vtkObject* object)const override;
 
-  /// Return  a list of the supported extensions for a particuliar object.
+  /// Return a list of the supported extensions for a particular object.
   /// Please read QFileDialog::nameFilters for the allowed formats
   /// Example: "Image (*.jpg *.png *.tiff)", "Model (*.vtk)"
   QStringList extensions(vtkObject* object)const override;

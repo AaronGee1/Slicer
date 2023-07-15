@@ -237,6 +237,10 @@ public slots:
   void renameCurrentItem();
   /// Delete selected subject hierarchy items and associated data nodes
   void deleteSelectedItems();
+  /// Hide selected subject hierarchy items
+  void hideSelectedItems();
+  /// Show selected subject hierarchy items
+  void showSelectedItems();
   /// Toggle visibility of selected subject hierarchy items
   void toggleVisibilityOfSelectedItems();
   /// Edit properties of current item
@@ -260,16 +264,29 @@ public slots:
   virtual void setMultiSelection(bool multiSelectionOn);
 
   /// Set list of subject hierarchy plugins that are enabled.
-  /// \param whitelist List of whitelisted subject hierarchy plugin names.
-  ///   Empty whitelist means all plugins are enabled. That is the default.
-  void setPluginWhitelist(QStringList whitelist);
+  /// \param allowlist List of allowed subject hierarchy plugin names.
+  ///   An empty allowlist means all plugins are enabled. That is the default.
+  void setPluginAllowlist(QStringList allowlist);
   /// Set list of subject hierarchy plugins that are disabled.
-  /// \param blacklist List of blacklisted subject hierarchy plugin names.
-  ///   Empty blacklist means all plugins are enabled. That is the default.
-  void setPluginBlacklist(QStringList blacklist);
-  /// Disable subject hierarchy plugin by adding it to the blacklist \sa setPluginBlacklist
+  /// \param blocklist List of blocked subject hierarchy plugin names.
+  ///   An empty blocklist means all plugins are enabled. That is the default.
+  void setPluginBlocklist(QStringList blocklist);
+  /// Disable subject hierarchy plugin by adding it to the blocklist \sa setPluginBlocklist
   /// \param plugin Name of the plugin to disable
   void disablePlugin(QString plugin);
+
+  /// Deprecated. Use setPluginAllowlist instead.
+  void setPluginWhitelist(QStringList allowlist)
+    {
+    qWarning("qMRMLSubjectHierarchyTreeView::setPluginWhitelist is deprecated. Use setPluginAllowlist instead.");
+    this->setPluginAllowlist(allowlist);
+    }
+  /// Deprecated. Use setPluginBlocklist instead.
+  void setPluginBlacklist(QStringList blocklist)
+    {
+    qWarning("qMRMLSubjectHierarchyTreeView::setPluginBlacklist is deprecated. Use setPluginBlocklist instead.");
+    this->setPluginBlocklist(blocklist);
+    }
 
   /// Show hint to user about context menus
   /// \param visibility True if visibility context menu hint is to be shown, false for general context menu. False by default
@@ -300,7 +317,6 @@ signals:
 
 protected slots:
   virtual void onSelectionChanged(const QItemSelection &selected, const QItemSelection &deselected);
-  virtual void onCurrentSelection(const QModelIndex &currentItemIndex);
 
   /// Updates subject hierarchy item expanded property when item is expanded
   virtual void onItemExpanded(const QModelIndex &expandedItemIndex);
@@ -338,9 +354,6 @@ protected slots:
 protected:
   /// Set the subject hierarchy node found in the given scene. Called only internally.
   virtual void setSubjectHierarchyNode(vtkMRMLSubjectHierarchyNode* shNode);
-
-  /// Toggle visibility for given subject hierarchy item
-  void toggleSubjectHierarchyItemVisibility(vtkIdType itemID);
 
   /// Populate general context menu for given subject hierarchy item
   /// \param itemID Subject hierarchy item ID of the item to show context menu for. It is only used

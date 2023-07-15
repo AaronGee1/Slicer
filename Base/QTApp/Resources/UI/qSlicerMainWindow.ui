@@ -14,10 +14,13 @@
   <widget class="QStatusBar" name="StatusBar"/>
   <widget class="QDockWidget" name="PanelDockWidget">
    <property name="features">
-    <set>QDockWidget::AllDockWidgetFeatures</set>
+    <set>QDockWidget::DockWidgetClosable|QDockWidget::DockWidgetFloatable|QDockWidget::DockWidgetMovable</set>
    </property>
    <property name="allowedAreas">
     <set>Qt::LeftDockWidgetArea|Qt::RightDockWidgetArea</set>
+   </property>
+   <property name="windowTitle">
+    <string>Module Panel</string>
    </property>
    <attribute name="dockWidgetArea">
     <number>1</number>
@@ -202,6 +205,7 @@
    <addaction name="ViewLayoutFourByTwoSliceAction"/>
    <addaction name="ViewLayoutFiveByTwoSliceAction"/>
    <addaction name="ViewLayoutThreeByThreeSliceAction"/>
+   <addaction name="ViewLayoutDualMonitorFourUpViewAction"/>
   </widget>
   <widget class="QMenuBar" name="menubar">
    <property name="geometry">
@@ -209,7 +213,7 @@
      <x>0</x>
      <y>0</y>
      <width>835</width>
-     <height>22</height>
+     <height>26</height>
     </rect>
    </property>
    <widget class="QMenu" name="FileMenu">
@@ -283,6 +287,7 @@
      <addaction name="ViewLayoutFourByThreeSliceAction"/>
      <addaction name="ViewLayoutFourByTwoSliceAction"/>
      <addaction name="ViewLayoutThreeByThreeSliceAction"/>
+     <addaction name="ViewLayoutDualMonitorFourUpViewAction"/>
     </widget>
     <widget class="QMenu" name="WindowToolBarsMenu">
      <property name="title">
@@ -303,8 +308,6 @@
     <addaction name="separator"/>
     <addaction name="ViewExtensionsManagerAction"/>
     <addaction name="ModuleHomeAction"/>
-    <addaction name="separator"/>
-    <addaction name="WindowErrorLogAction"/>
     <addaction name="separator"/>
    </widget>
    <widget class="QMenu" name="HelpMenu">
@@ -351,6 +354,9 @@
    </property>
    <property name="toolTip">
     <string>Raise the DICOM module for loading DICOM datasets.</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
    </property>
   </action>
   <action name="FileImportSceneAction">
@@ -529,8 +535,8 @@
   </action>
   <action name="EditApplicationSettingsAction">
    <property name="icon">
-    <iconset resource="../../../../Modules/Loadable/SlicerWelcome/Resources/UI/qSlicerWelcomeModule.qrc">
-    <normaloff>:/Images/SlicerAdvancedGear-Original.png</normaloff>:/Images/SlicerAdvancedGear-Original.png</iconset>
+    <iconset>
+     <normaloff>:/Images/SlicerAdvancedGear-Original.png</normaloff>:/Images/SlicerAdvancedGear-Original.png</iconset>
    </property>
    <property name="text">
     <string>Application Settings</string>
@@ -602,17 +608,6 @@
    </property>
    <property name="shortcut">
     <string>Ctrl+6</string>
-   </property>
-  </action>
-  <action name="WindowErrorLogAction">
-   <property name="text">
-    <string>&amp;Error Log</string>
-   </property>
-   <property name="toolTip">
-    <string>Raise the error log display.</string>
-   </property>
-   <property name="shortcut">
-    <string>Ctrl+0</string>
    </property>
   </action>
   <action name="FeedbackReportUsabilityIssueAction">
@@ -1085,6 +1080,18 @@
    </property>
    <property name="toolTip">
     <string>Three by three slice</string>
+   </property>
+  </action>
+  <action name="ViewLayoutDualMonitorFourUpViewAction">
+   <property name="icon">
+    <iconset resource="../../../../Libs/MRML/Widgets/Resources/qMRMLWidgets.qrc">
+     <normaloff>:/Icons/LayoutDualMonitorFourUpView.png</normaloff>:/Icons/LayoutDualMonitorFourUpView.png</iconset>
+   </property>
+   <property name="text">
+    <string>Dual-monitor Four-Up</string>
+   </property>
+   <property name="toolTip">
+    <string>Dual-monitor Four-Up</string>
    </property>
   </action>
   <action name="ViewLayoutOneUpPlotAction">

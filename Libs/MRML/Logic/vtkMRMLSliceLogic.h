@@ -37,6 +37,7 @@ class vtkCollection;
 class vtkImageBlend;
 class vtkTransform;
 class vtkImageData;
+class vtkImageMathematics;
 class vtkImageReslice;
 class vtkTransform;
 
@@ -47,7 +48,7 @@ struct BlendPipeline;
 ///
 /// This class manages the logic associated with display of slice windows
 /// (but not the GUI).  Features of the class include:
-///  -- a back-to-front list of MrmlVolumes to be displayed
+///  -- a back-to-front list of MRML volumes to be displayed
 ///  -- a compositing mode for each volume layer (opacity, outline, glyph, checkerboard, etc)
 ///  -- each layer is required to provide an RGBA image in the space defined by the vtkMRMLSliceNode
 ///
@@ -177,12 +178,12 @@ public:
   /// Internally used by UpdatePipeline
   void UpdateImageData();
 
-  /// Reimplemented to avoir calling ProcessMRMLSceneEvents when we are added the
+  /// Reimplemented to avoid calling ProcessMRMLSceneEvents when we are adding the
   /// MRMLModelNode into the scene
   virtual bool EnterMRMLCallback()const;
 
   ///
-  /// Manage and synchronise the SliceNode
+  /// Manage and synchronize the SliceNode
   void UpdateSliceNode();
 
   ///
@@ -190,7 +191,7 @@ public:
   void UpdateSliceNodeFromLayout();
 
   ///
-  /// Manage and synchronise the SliceCompositeNode
+  /// Manage and synchronize the SliceCompositeNode
   void UpdateSliceCompositeNode();
 
   ///
@@ -210,7 +211,7 @@ public:
   /// Get the spacing of the volume, transformed to slice space
   /// - to be used, for example, to set the slice increment for stepping a single
   ///   voxel relative to the current slice view
-  double *GetVolumeSliceSpacing(vtkMRMLVolumeNode *volumeNode);
+  double* GetVolumeSliceSpacing(vtkMRMLVolumeNode *volumeNode) VTK_SIZEHINT(3);
 
   ///
   /// Get the min/max bounds of the volume
@@ -236,7 +237,7 @@ public:
   /// Get the spacing of the volume, transformed to slice space
   /// - to be used, for example, to set the slice increment for stepping a single
   ///   voxel relative to the current slice view
-  double *GetBackgroundSliceSpacing();
+  double* GetBackgroundSliceSpacing() VTK_SIZEHINT(3);
 
   ///
   /// Get the min/max bounds of the volume
@@ -276,7 +277,7 @@ public:
   /// - to be used, for example, to set the slice increment for stepping a single
   ///   voxel relative to the current slice view
   /// - returns first non-null layer
-  double *GetLowestVolumeSliceSpacing();
+  double* GetLowestVolumeSliceSpacing() VTK_SIZEHINT(3);
 
   ///
   /// Get the min/max bounds of the lowest volume layer (background, foreground, label)
@@ -371,7 +372,7 @@ public:
   /// \sa SLICE_MODEL_NODE_NAME_SUFFIX
   static bool IsSliceModelNode(vtkMRMLNode *mrmlNode);
   /// Return true if the display node is a volume slice node display node
-  /// by checking the attribute SliceLogic.IsSliceModelDiplayNode
+  /// by checking the attribute SliceLogic.IsSliceModelDisplayNode
   /// Returns false if the attribute is not present, true if the attribute
   /// is present and not equal to zero
   static bool IsSliceModelDisplayNode(vtkMRMLDisplayNode *mrmlDisplayNode);
@@ -381,6 +382,10 @@ public:
   /// backgroundVolumeEditable and foregroundVolumeEditable can be used specify that
   /// a volume is not editable (even if it is visible at the given position).
   int GetEditableLayerAtWorldPosition(double worldPos[3], bool backgroundVolumeEditable = true, bool foregroundVolumeEditable = true);
+
+  /// Get range and resolution for slice offset sliders.
+  /// Returns false if the information cannot be determined.
+  bool GetSliceOffsetRangeResolution(double range[2], double& resolution);
 
 protected:
 
@@ -422,12 +427,23 @@ protected:
   /// is a relatively expensive operation.
   bool UpdateBlendLayers(vtkImageBlend* blend, const std::deque<SliceLayerInfo> &layers);
 
+  /// Helper to update foreground opacity when adding/subtracting the background layer
+  bool UpdateFractions(vtkImageMathematics* fraction, double opacity);
+
+  /// Helper to update reconstruction slab settings for a given layer.
+  static void UpdateReconstructionSlab(vtkMRMLSliceLogic* sliceLogic, vtkMRMLSliceLayerLogic* sliceLayerLogic);
+
   /// Returns true if position is inside the selected layer volume.
   /// Use background flag to choose between foreground/background layer.
   bool IsEventInsideVolume(bool background, double worldPos[3]);
 
-  /// Returns true if the volume's window/level values are editable on the GUI.
-  bool VolumeWindowLevelEditable(const char* volumeNodeID);
+  /// Deprecated. Returns true if the volume's window/level values are editable on the GUI.
+  bool VolumeWindowLevelEditable(const char* vtkNotUsed(volumeNodeID))
+  {
+    vtkWarningMacro("vtkMRMLSliceLogic::VolumeWindowLevelEditable method is deprecated. Volume Window Level is always editable. Use the interaction node to check if in editing mode. "
+                    "e.g. slicer.app.applicationLogic().GetInteractionNode().GetCurrentInteractionMode() == slicer.vtkMRMLInteractionNode.AdjustWindowLevel");
+    return true;
+  };
 
   bool                        AddingSliceModelNodes;
 

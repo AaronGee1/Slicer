@@ -27,7 +27,7 @@
 #include <vtkGlyph3D.h>
 #include <vtkLine.h>
 #include <vtkOutlineFilter.h>
-#include <vtkPassThroughFilter.h>
+#include <vtkPassThrough.h>
 #include <vtkPointData.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkProperty.h>
@@ -53,7 +53,7 @@ vtkSlicerROIRepresentation3D::vtkSlicerROIRepresentation3D()
 {
   this->ROISource = nullptr;
 
-  this->ROIPipelineInputFilter = vtkSmartPointer<vtkPassThroughFilter>::New();
+  this->ROIPipelineInputFilter = vtkSmartPointer<vtkPassThrough>::New();
 
   this->ROIToWorldTransform = vtkSmartPointer<vtkTransform>::New();
   this->ROITransformFilter = vtkSmartPointer<vtkTransformPolyDataFilter>::New();
@@ -106,9 +106,9 @@ vtkSlicerROIRepresentation3D::vtkSlicerROIRepresentation3D()
 vtkSlicerROIRepresentation3D::~vtkSlicerROIRepresentation3D() = default;
 
 //----------------------------------------------------------------------
-void vtkSlicerROIRepresentation3D::UpdateFromMRML(vtkMRMLNode* caller, unsigned long event, void *callData /*=nullptr*/)
+void vtkSlicerROIRepresentation3D::UpdateFromMRMLInternal(vtkMRMLNode* caller, unsigned long event, void *callData /*=nullptr*/)
 {
-  Superclass::UpdateFromMRML(caller, event, callData);
+  Superclass::UpdateFromMRMLInternal(caller, event, callData);
 
   vtkMRMLMarkupsROINode* roiNode = vtkMRMLMarkupsROINode::SafeDownCast(this->GetMarkupsNode());
   vtkMRMLMarkupsDisplayNode* displayNode = this->GetMarkupsDisplayNode();

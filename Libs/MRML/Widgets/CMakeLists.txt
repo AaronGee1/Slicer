@@ -59,6 +59,8 @@ configure_file(
 # Sources
 #
 set(MRMLWidgets_SRCS
+  qMRMLAbstractViewWidget.cxx
+  qMRMLAbstractViewWidget.h
   qMRMLCaptureToolBar.cxx
   qMRMLCaptureToolBar.h
   qMRMLCheckableNodeComboBox.cxx
@@ -170,6 +172,8 @@ set(MRMLWidgets_SRCS
   qMRMLSliceInformationWidget.cxx
   qMRMLSliceInformationWidget.h
   qMRMLSliceInformationWidget_p.h
+  qMRMLSliceVerticalControllerWidget.cxx
+  qMRMLSliceVerticalControllerWidget.h
   qMRMLSliceView.cxx
   qMRMLSliceView.h
   qMRMLSliceView_p.h
@@ -237,6 +241,7 @@ endif()
 
 # Headers that should run through moc
 set(MRMLWidgets_MOC_SRCS
+  qMRMLAbstractViewWidget.h
   qMRMLCaptureToolBar.h
   qMRMLCheckableNodeComboBox.h
   qMRMLClipNodeWidget.h
@@ -294,6 +299,7 @@ set(MRMLWidgets_MOC_SRCS
   qMRMLSliceControllerWidget_p.h
   qMRMLSliceInformationWidget.h
   qMRMLSliceInformationWidget_p.h
+  qMRMLSliceVerticalControllerWidget.h
   qMRMLSliceView.h
   qMRMLSliceView_p.h
   qMRMLSliceWidget.h
@@ -351,6 +357,7 @@ set(MRMLWidgets_UI_SRCS
   Resources/UI/qMRMLSegmentSelectorWidget.ui
   Resources/UI/qMRMLSliceControllerWidget.ui
   Resources/UI/qMRMLSliceInformationWidget.ui
+  Resources/UI/qMRMLSliceVerticalControllerWidget.ui
   Resources/UI/qMRMLSliceWidget.ui
   Resources/UI/qMRMLTableViewControllerWidget.ui
   Resources/UI/qMRMLThreeDViewControllerWidget.ui
@@ -475,7 +482,7 @@ set(MRMLWidgets_LIBRARIES
   ${CTK_LIBRARIES}
   MRMLLogic
   MRMLDisplayableManager
-  ${VTK_TARGET_PREFIX}RenderingQt
+  VTK::RenderingQt
   )
 
 target_link_libraries(${lib_name} ${MRMLWidgets_LIBRARIES})

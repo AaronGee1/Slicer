@@ -409,9 +409,9 @@ void vtkSlicerMarkupsWidgetRepresentation2D::SetCenterSliceVisibility(bool visib
 }
 
 //----------------------------------------------------------------------
-void vtkSlicerMarkupsWidgetRepresentation2D::UpdateFromMRML(vtkMRMLNode* caller, unsigned long event, void *callData/*=nullptr*/)
+void vtkSlicerMarkupsWidgetRepresentation2D::UpdateFromMRMLInternal(vtkMRMLNode* caller, unsigned long event, void *callData/*=nullptr*/)
 {
-  Superclass::UpdateFromMRML(caller, event, callData);
+  Superclass::UpdateFromMRMLInternal(caller, event, callData);
 
   // Update from slice node
   if (!caller || caller == this->ViewNode.GetPointer())
@@ -437,6 +437,10 @@ void vtkSlicerMarkupsWidgetRepresentation2D::UpdateFromMRML(vtkMRMLNode* caller,
     controlPoints->Property->SetOpacity(opacity);
 
     controlPoints->TextProperty->ShallowCopy(this->MarkupsDisplayNode->GetTextProperty());
+    if (this->GetApplicationLogic())
+      {
+      this->GetApplicationLogic()->UseCustomFontFile(controlPoints->TextProperty);
+      }
     controlPoints->TextProperty->SetColor(color);
     controlPoints->TextProperty->SetOpacity(opacity);
     controlPoints->TextProperty->SetFontSize(static_cast<int>(this->MarkupsDisplayNode->GetTextProperty()->GetFontSize()
@@ -908,7 +912,7 @@ bool vtkSlicerMarkupsWidgetRepresentation2D::IsControlPointDisplayableOnSlice(vt
 
   bool showPoint = true;
 
-  // allow annotations to appear only in designated viewers
+  // allow nodes to appear only in designated viewers
   vtkMRMLDisplayNode *displayNode = markupsNode->GetDisplayNode();
   if (!displayNode)
     {
@@ -960,7 +964,7 @@ bool vtkSlicerMarkupsWidgetRepresentation2D::IsPointBehindSlice(vtkMRMLMarkupsNo
     return false;
     }
 
-  // allow annotations to appear only in designated viewers
+  // allow nodes to appear only in designated viewers
   vtkMRMLDisplayNode *displayNode = markupsNode->GetDisplayNode();
   if (!displayNode)
     {
@@ -996,7 +1000,7 @@ bool vtkSlicerMarkupsWidgetRepresentation2D::IsPointInFrontSlice(vtkMRMLMarkupsN
     return false;
     }
 
-  // allow annotations to appear only in designated viewers
+  // allow nodes to appear only in designated viewers
   vtkMRMLDisplayNode *displayNode = markupsNode->GetDisplayNode();
   if (!displayNode)
     {
@@ -1037,7 +1041,7 @@ bool vtkSlicerMarkupsWidgetRepresentation2D::IsCenterDisplayableOnSlice(vtkMRMLM
 
   bool showPoint = true;
 
-  // allow annotations to appear only in designated viewers
+  // allow nodes to appear only in designated viewers
   if (!markupsNode || !this->IsDisplayable())
     {
     return false;

@@ -1,18 +1,50 @@
 cmake_minimum_required(VERSION 3.16.3...3.19.7 FATAL_ERROR)
 
+if("${CMAKE_VERSION}" VERSION_EQUAL "3.21.0")
+  message(FATAL_ERROR "CMake version is ${CMAKE_VERSION} and using CMake==3.21.0 is not supported.\nSee https://gitlab.kitware.com/cmake/cmake/-/issues/22476")
+endif()
+
+if("${CMAKE_VERSION}" VERSION_GREATER_EQUAL "3.25.0" AND "${CMAKE_VERSION}" VERSION_LESS_EQUAL "3.25.2")
+  message(FATAL_ERROR "CMake version is ${CMAKE_VERSION} and using CMake >=3.25.0,<=3.25.2 is not supported.\nSee https://gitlab.kitware.com/cmake/cmake/-/issues/24567")
+endif()
+
 #-----------------------------------------------------------------------------
 # Setting C++ Standard
 #-----------------------------------------------------------------------------
 set(_msg "Setting C++ standard")
 message(STATUS "${_msg}")
 if(NOT CMAKE_CXX_STANDARD)
-  set(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_CXX_STANDARD 17)
 endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 message(STATUS "${_msg} - C++${CMAKE_CXX_STANDARD}")
-if(NOT CMAKE_CXX_STANDARD MATCHES "^(14|17)$")
-  message(FATAL_ERROR "CMAKE_CXX_STANDARD must be set to 14 or 17")
+if(NOT CMAKE_CXX_STANDARD MATCHES "^(17|20)$")
+  message(FATAL_ERROR "CMAKE_CXX_STANDARD must be set to 17 or 20")
+endif()
+
+# Prevent unnecessary re-linking on Linux
+#
+# See https://discourse.slicer.org/t/build-when-git-commit-is-changed/29607/12
+#
+# For example, on Linux, after modifying one implementation file
+#
+# $ touch ../../Slicer/Libs/MRML/Core/vtkMRMLScene.cxx
+#
+# We can observe that beside the rebuilding of libMRMLCore.so no relinking
+# happen for any of the dependencies:
+#
+# $ make -j10
+# [...]
+# [ 24%] Building CXX object Libs/MRML/Core/CMakeFiles/MRMLCore.dir/vtkMRMLScene.cxx.o
+# [ 24%] Linking CXX shared library ../../../bin/libMRMLCore.so
+# [ 26%] Built target MRMLCore
+# [ 26%] Built target MRMLCLI
+# [...]
+# [100%] Built target qSlicerVolumeRenderingModuleCxxTests
+#
+if(NOT DEFINED CMAKE_LINK_DEPENDS_NO_SHARED AND UNIX AND NOT APPLE)
+  set(CMAKE_LINK_DEPENDS_NO_SHARED ON)
 endif()
 
 #-----------------------------------------------------------------------------
@@ -43,7 +75,7 @@ if(NOT DEFINED Slicer_VERSION_MAJOR)
   set(Slicer_VERSION_MAJOR "5")
 endif()
 if(NOT DEFINED Slicer_VERSION_MINOR)
-  set(Slicer_VERSION_MINOR "1")
+  set(Slicer_VERSION_MINOR "3")
 endif()
 if(NOT DEFINED Slicer_VERSION_PATCH)
   set(Slicer_VERSION_PATCH "0")
@@ -282,6 +314,9 @@ mark_as_superbuild(Slicer_BUILD_QT_DESIGNER_PLUGINS)
 option(Slicer_BUILD_EXTENSIONMANAGER_SUPPORT "Build Slicer extensions manager" ON)
 mark_as_superbuild(Slicer_BUILD_EXTENSIONMANAGER_SUPPORT)
 
+option(Slicer_BUILD_APPLICATIONUPDATE_SUPPORT "Build Slicer with application update support" ON)
+mark_as_superbuild(Slicer_BUILD_APPLICATIONUPDATE_SUPPORT)
+
 option(Slicer_BUILD_MULTIMEDIA_SUPPORT "Build Slicer with Multimedia support" ON)
 mark_as_superbuild(Slicer_BUILD_MULTIMEDIA_SUPPORT)
 
@@ -313,6 +348,8 @@ set(_commit_count_offsets
   # (https://github.com/Slicer/Slicer.git).
   "3037"
   # Allocate revisions for patch releases between v5.0.0 and v5.1.0
+  "100"
+  # Allocate revisions for patch releases between v5.2.0 and v5.3.0
   "100"
   )
 list(JOIN _commit_count_offsets "+" _commit_count_offsets_expr)
@@ -360,21 +397,14 @@ mark_as_superbuild(Slicer_USE_QtTesting)
 option(Slicer_USE_SimpleITK "Build Slicer with SimpleITK support" ON)
 mark_as_superbuild(Slicer_USE_SimpleITK)
 
-option(Slicer_BUILD_ITKPython "Build Python wrapping for ITK" OFF)
-mark_as_superbuild(Slicer_BUILD_ITKPython)
-CMAKE_DEPENDENT_OPTION(
-  Slicer_INSTALL_ITKPython "Install Slicer with Python wrapping for ITK" OFF
-  "Slicer_BUILD_ITKPython" OFF)
-mark_as_superbuild(Slicer_INSTALL_ITKPython)
-
 option(Slicer_BUILD_PARAMETERSERIALIZER_SUPPORT "Build Slicer with parameter serializer support" OFF)
 mark_as_superbuild(Slicer_BUILD_PARAMETERSERIALIZER_SUPPORT)
 
 set(_default_vtk "9")
-set(Slicer_VTK_VERSION_MAJOR ${_default_vtk} CACHE STRING "VTK major version (8 or 9)")
-set_property(CACHE Slicer_VTK_VERSION_MAJOR PROPERTY STRINGS "8" "9")
-if(NOT "${Slicer_VTK_VERSION_MAJOR}" MATCHES "^(8|9)$")
-  message(FATAL_ERROR "error: Slicer_VTK_VERSION_MAJOR must be 8 or 9.")
+set(Slicer_VTK_VERSION_MAJOR ${_default_vtk} CACHE STRING "VTK major version (9)")
+set_property(CACHE Slicer_VTK_VERSION_MAJOR PROPERTY STRINGS "9")
+if(NOT "${Slicer_VTK_VERSION_MAJOR}" MATCHES "^(9)$")
+  message(FATAL_ERROR "error: Slicer_VTK_VERSION_MAJOR must be 9.")
 endif()
 mark_as_superbuild(Slicer_VTK_VERSION_MAJOR)
 
@@ -462,6 +492,8 @@ endif()
 include(SlicerFunctionInstallLibrary)
 include(SlicerFunctionAddPythonQtResources)
 
+set(Slicer_QRCC_SCRIPT "${CMAKE_CURRENT_SOURCE_DIR}/Utilities/Scripts/qrcc.py" CACHE INTERNAL "Path to qrcc.py script used in slicerFunctionAddPythonQtResources() CMake function")
+
 #-----------------------------------------------------------------------------
 # Internationalization
 #-----------------------------------------------------------------------------
@@ -505,9 +537,8 @@ endif()
 # Extension directories
 #-----------------------------------------------------------------------------
 # NOTE: Make sure to update vtkSlicerApplicationLogic::IsEmbeddedModule if
-#       the following variables are changed.
+#       the following variable is changed.
 set(Slicer_EXTENSIONS_DIRBASENAME "Extensions")
-set(Slicer_EXTENSIONS_DIRNAME "${Slicer_EXTENSIONS_DIRBASENAME}-${Slicer_REVISION}")
 
 #-----------------------------------------------------------------------------
 # Slicer OpenGL Options
@@ -552,57 +583,34 @@ message(STATUS "  Slicer_VTK_VERSION_MAJOR is ${Slicer_VTK_VERSION_MAJOR}")
 #-----------------------------------------------------------------------------
 # Slicer_VTK_COMPONENTS
 #-----------------------------------------------------------------------------
-if (Slicer_VTK_VERSION_MAJOR VERSION_LESS "9")
-  set(VTK_COMPONENT_PREFIX "vtk")
-  set(VTK_TARGET_PREFIX "vtk")
-else()
-  set(VTK_COMPONENT_PREFIX "")
-  set(VTK_TARGET_PREFIX "VTK::")
-endif()
 set(Slicer_VTK_COMPONENTS
-  ${VTK_COMPONENT_PREFIX}FiltersExtraction
-  ${VTK_COMPONENT_PREFIX}FiltersFlowPaths
-  ${VTK_COMPONENT_PREFIX}FiltersGeometry
-  ${VTK_COMPONENT_PREFIX}FiltersParallel
-  ${VTK_COMPONENT_PREFIX}GUISupportQtSQL
-  ${VTK_COMPONENT_PREFIX}IOExport
-  ${VTK_COMPONENT_PREFIX}IOImage
-  ${VTK_COMPONENT_PREFIX}IOLegacy
-  ${VTK_COMPONENT_PREFIX}IOPLY
-  ${VTK_COMPONENT_PREFIX}IOXML
-  ${VTK_COMPONENT_PREFIX}ImagingMath
-  ${VTK_COMPONENT_PREFIX}ImagingMorphological
-  ${VTK_COMPONENT_PREFIX}ImagingStatistics
-  ${VTK_COMPONENT_PREFIX}ImagingStencil
-  ${VTK_COMPONENT_PREFIX}InteractionImage
-  ${VTK_COMPONENT_PREFIX}RenderingContext${Slicer_VTK_RENDERING_BACKEND}
-  ${VTK_COMPONENT_PREFIX}RenderingQt
-  ${VTK_COMPONENT_PREFIX}RenderingVolume${Slicer_VTK_RENDERING_BACKEND}
-  ${VTK_COMPONENT_PREFIX}TestingRendering
-  ${VTK_COMPONENT_PREFIX}ViewsQt
-  ${VTK_COMPONENT_PREFIX}zlib
+  FiltersExtraction
+  FiltersFlowPaths
+  FiltersGeometry
+  FiltersParallel
+  GUISupportQtSQL
+  IOExport
+  IOImage
+  IOLegacy
+  IOPLY
+  IOXML
+  ImagingMath
+  ImagingMorphological
+  ImagingStatistics
+  ImagingStencil
+  InteractionImage
+  RenderingContext${Slicer_VTK_RENDERING_BACKEND}
+  RenderingQt
+  RenderingVolume${Slicer_VTK_RENDERING_BACKEND}
+  TestingRendering
+  ViewsQt
+  zlib
   )
-if (Slicer_VTK_VERSION_MAJOR VERSION_LESS "9")
-  list(APPEND Slicer_VTK_COMPONENTS
-    ${VTK_COMPONENT_PREFIX}GUISupportQtOpenGL
-    )
-endif()
 
 if(Slicer_USE_PYTHONQT)
   list(APPEND Slicer_VTK_COMPONENTS
-    ${VTK_COMPONENT_PREFIX}WrappingPythonCore
+    WrappingPythonCore
     )
-endif()
-if(UNIX AND NOT APPLE AND Slicer_VTK_VERSION_MAJOR VERSION_LESS "9")
-  find_package(FontConfig QUIET)
-  if(FONTCONFIG_FOUND)
-    list(APPEND Slicer_VTK_COMPONENTS
-      ${VTK_COMPONENT_PREFIX}RenderingFreeTypeFontConfig
-      )
-    if(TARGET vtkRenderingFreeTypeOpenGL)
-      list(APPEND VTK_LIBRARIES ${VTK_TARGET_PREFIX}RenderingFreeTypeOpenGL)
-    endif()
-  endif()
 endif()
 
 #-----------------------------------------------------------------------------
@@ -614,7 +622,7 @@ endif()
   set(Slicer_REQUIRED_QT_MODULES
     Core Widgets
     Network OpenGL
-    PrintSupport # Required by "Annotations" module
+    PrintSupport
     UiTools #no dll
     Xml XmlPatterns
     Svg Sql
@@ -641,8 +649,10 @@ endif()
       WebChannel
       )
   endif()
-  if(Slicer_BUILD_EXTENSIONMANAGER_SUPPORT)
-    list(APPEND Slicer_REQUIRED_QT_MODULES Script)
+  # Both "extension manager" and "application update" require qRestApi external
+  # project itself depending on Qt's Qml module
+  if(Slicer_BUILD_EXTENSIONMANAGER_SUPPORT OR Slicer_BUILD_APPLICATIONUPDATE_SUPPORT)
+    list(APPEND Slicer_REQUIRED_QT_MODULES Qml)
   endif()
   if(Slicer_BUILD_I18N_SUPPORT)
     list(APPEND Slicer_REQUIRED_QT_MODULES LinguistTools) # no dll
@@ -669,7 +679,7 @@ mark_as_superbuild(Slicer_USE_SYSTEM_QT:BOOL)
 #-----------------------------------------------------------------------------
 # Qt plugins (designer, imageformats, ...) relative directories
 #-----------------------------------------------------------------------------
-set(Slicer_QtPlugins_DIR "lib/QtPlugins")
+set(Slicer_QtPlugins_DIR "${CMAKE_INSTALL_LIBDIR}/QtPlugins")
 set(Slicer_INSTALL_QtPlugins_DIR "${Slicer_INSTALL_ROOT}${Slicer_QtPlugins_DIR}")
 
 #-----------------------------------------------------------------------------
@@ -839,6 +849,7 @@ if(BUILD_TESTING)
     COPYONLY)
 
   add_subdirectory(CMake/Testing)
+  add_subdirectory(Extensions/CMake/Testing)
 
   if(Slicer_BUILD_CLI_SUPPORT)
     set(SEM_LAUNCH_COMMAND ${Slicer_LAUNCH_COMMAND})
@@ -861,15 +872,9 @@ endif()
 # VTK
 #-----------------------------------------------------------------------------
 find_package(VTK REQUIRED)
-if (VTK_VERSION VERSION_LESS "8.90")
-  find_package(VTK ${Slicer_VTK_VERSION_MAJOR} COMPONENTS ${Slicer_VTK_COMPONENTS} REQUIRED NO_MODULE)
-  include(${VTK_USE_FILE})
-  set(VTK_GUI_SUPPORT_QT_TARGET_NAME "vtkGUISupportQt")
-else()
-  set(VTK_LIBRARIES "")
-  find_package(VTK ${Slicer_VTK_VERSION_MAJOR} COMPONENTS ${Slicer_VTK_COMPONENTS} REQUIRED)
-  set(VTK_GUI_SUPPORT_QT_TARGET_NAME "VTK::GUISupportQt")
-endif ()
+set(VTK_LIBRARIES "")
+find_package(VTK ${Slicer_VTK_VERSION_MAJOR} COMPONENTS ${Slicer_VTK_COMPONENTS} REQUIRED)
+set(VTK_GUI_SUPPORT_QT_TARGET_NAME "VTK::GUISupportQt")
 
 if(NOT TARGET ${VTK_GUI_SUPPORT_QT_TARGET_NAME})
   message(FATAL_ERROR "error: VTK was not configured to use Qt, you probably need "
@@ -1171,7 +1176,7 @@ get_property(Slicer_QM_OUTPUT_DIRS GLOBAL PROPERTY Slicer_QM_OUTPUT_DIRS)
 # --------------------------------------------------------------------------
 set(files
   vtkSlicerConfigure.h
-  vtkSlicerVersionConfigureInternal.h
+  vtkSlicerVersionConfigureMinimal.h
   )
 foreach(f ${files})
   configure_file(

@@ -21,6 +21,7 @@
 // Qt includes
 #include <QAction>
 #include <QDebug>
+#include <QDesktopServices>
 #include <QFile>
 #include <QLabel>
 #include <QtGlobal>
@@ -37,6 +38,7 @@
 #endif
 
 #include "vtkSlicerConfigure.h" // For Slicer_USE_*, Slicer_BUILD_*_SUPPORT
+#include <vtkSlicerVersionConfigure.h> // For Slicer_VERSION_FULL
 
 // CTK includes
 #include <ctkColorDialog.h>
@@ -46,6 +48,7 @@
 #include <ctkErrorLogStreamMessageHandler.h>
 #include <ctkITKErrorLogMessageHandler.h>
 #include <ctkMessageBox.h>
+#include <ctkPimpl.h>
 #ifdef Slicer_USE_PYTHONQT
 # include "ctkPythonConsole.h"
 #endif
@@ -77,7 +80,11 @@
 #endif
 #ifdef Slicer_BUILD_EXTENSIONMANAGER_SUPPORT
 # include "qSlicerExtensionsManagerDialog.h"
+# include "qSlicerExtensionsManagerModel.h"
 # include "qSlicerSettingsExtensionsPanel.h"
+#endif
+#ifdef Slicer_BUILD_APPLICATIONUPDATE_SUPPORT
+# include "qSlicerApplicationUpdateManager.h"
 #endif
 #include "qSlicerSettingsCachePanel.h"
 #include "qSlicerSettingsGeneralPanel.h"
@@ -113,10 +120,60 @@
 
 // VTK includes
 #include <vtkNew.h>
-#include <vtkVersionMacros.h> // must precede reference to VTK_*_VERSION
-#if VTK_MAJOR_VERSION >= 9
 #include <vtkSMP.h> // For VTK_SMP_BACKEND
+
+#ifdef Slicer_USE_PYTHONQT
+
+// Custom Python completer that temporarily disables logging when reading list of attributes.
+// Disabling logging is needed because when Python enumerates all the methods then it executes
+// the getter function of every property, which may log error/warning messages (because
+// some properties are not set yet or the property is deprecated).
+
+//-----------------------------------------------------------------------------
+class ctkSlicerPythonConsoleCompleter : public ctkPythonConsoleCompleter
+{
+public:
+  ctkSlicerPythonConsoleCompleter(ctkAbstractPythonManager& pythonManager, qSlicerApplication* app)
+  : ctkPythonConsoleCompleter(pythonManager)
+  , Application(app)
+    {
+    }
+
+  void updateCompletionModel(const QString& completion) override
+    {
+    bool wasLoggingEnabled = this->setLoggingEnabled(false);
+    ctkPythonConsoleCompleter::updateCompletionModel(completion);
+    this->setLoggingEnabled(wasLoggingEnabled);
+    }
+
+  int cursorOffset(const QString& completion) override
+    {
+    bool wasLoggingEnabled = this->setLoggingEnabled(false);
+    int result = ctkPythonConsoleCompleter::cursorOffset(completion);
+    this->setLoggingEnabled(wasLoggingEnabled);
+    return result;
+    }
+
+protected:
+
+  bool setLoggingEnabled(bool enable)
+    {
+    if (!this->Application || !this->Application->errorLogModel())
+      {
+      return false;
+      }
+    ctkErrorLogAbstractMessageHandler* qtMessageHandler = this->Application->errorLogModel()->msgHandler("Qt");
+    if (!qtMessageHandler)
+      {
+      return false;
+      }
+    return !qtMessageHandler->blockSignals(!enable);
+    }
+
+  qSlicerApplication* Application{nullptr};
+};
 #endif
+
 
 //-----------------------------------------------------------------------------
 class qSlicerApplicationPrivate : public qSlicerCoreApplicationPrivate
@@ -154,6 +211,9 @@ public:
 #ifdef Slicer_USE_QtTesting
   ctkQtTestingUtility*    TestingUtility;
 #endif
+#ifdef Slicer_USE_PYTHONQT
+  ctkErrorLogLevel::LogLevel PythonConsoleLogLevel;
+#endif
 };
 
 
@@ -175,6 +235,9 @@ qSlicerApplicationPrivate::qSlicerApplicationPrivate(
 #endif
 #ifdef Slicer_USE_QtTesting
   this->TestingUtility = nullptr;
+#endif
+#ifdef Slicer_USE_PYTHONQT
+  this->PythonConsoleLogLevel = ctkErrorLogLevel::Warning;
 #endif
 }
 
@@ -237,6 +300,8 @@ void qSlicerApplicationPrivate::init()
     q->pythonConsole()->setWelcomeTextColor(palette.color(QPalette::Disabled, QPalette::WindowText));
     q->pythonConsole()->setPromptColor(palette.color(QPalette::Highlight));
     q->pythonConsole()->initialize(q->pythonManager());
+    ctkSlicerPythonConsoleCompleter* completer = new ctkSlicerPythonConsoleCompleter(*q->pythonManager(), q);
+    q->pythonConsole()->setCompleter(completer);
     QStringList autocompletePreferenceList;
     autocompletePreferenceList
       << "slicer"
@@ -272,6 +337,18 @@ void qSlicerApplicationPrivate::init()
   this->ErrorLogModel->registerMsgHandler(new ctkITKErrorLogMessageHandler);
   this->ErrorLogModel->registerMsgHandler(new ctkVTKErrorLogMessageHandler);
   this->ErrorLogModel->setAllMsgHandlerEnabled(true);
+
+#ifdef Slicer_USE_PYTHONQT
+  // Make ITK, VTK, Qt error messages show up in the Python console
+  QSettings* userSettings = q->userSettings();
+  ctkErrorLogLevel::LogLevel level = ctkErrorLogLevel::logLevelFromString(userSettings->value("Python/ConsoleLogLevel").toString());
+  if (level >= 0)
+    {
+    q->setPythonConsoleLogLevel(level);
+    }
+  QObject::connect(this->ErrorLogModel.data(), SIGNAL(entryAdded(QDateTime, QString, ctkErrorLogLevel::LogLevel, QString, ctkErrorLogContext, QString)),
+    q, SLOT(logToPythonConsole(QDateTime, QString, ctkErrorLogLevel::LogLevel, QString, ctkErrorLogContext, QString)));
+#endif
 
   q->setupFileLogging();
   q->logApplicationInformation();
@@ -381,6 +458,11 @@ QSettings* qSlicerApplicationPrivate::newSettings()
 //-----------------------------------------------------------------------------
 // qSlicerApplication methods
 
+#ifdef Slicer_USE_PYTHONQT
+CTK_GET_CPP(qSlicerApplication, ctkErrorLogLevel::LogLevel, pythonConsoleLogLevel, PythonConsoleLogLevel);
+CTK_SET_CPP(qSlicerApplication, ctkErrorLogLevel::LogLevel, setPythonConsoleLogLevel, PythonConsoleLogLevel);
+#endif
+
 //-----------------------------------------------------------------------------
 qSlicerApplication::qSlicerApplication(int &_argc, char **_argv)
   : Superclass(new qSlicerApplicationPrivate(*this, new qSlicerCommandOptions, nullptr), _argc, _argv)
@@ -452,7 +534,7 @@ bool qSlicerApplication::notify(QObject *receiver, QEvent *event)
     errorMessage += tr("The message detail is:\n\n");
     errorMessage += tr("Exception thrown in event: ") + exception.what();
     qCritical() << errorMessage;
-    if (this->commandOptions()->isTestingEnabled())
+    if (this->testAttribute(AA_EnableTesting))
       {
       this->exit(EXIT_FAILURE);
       }
@@ -471,7 +553,7 @@ bool qSlicerApplication::notify(QObject *receiver, QEvent *event)
     errorMessage += tr("The message detail is:\n\n");
     errorMessage += tr("Exception thrown in event: ") + exception.what();
     qCritical() << errorMessage;
-    if (this->commandOptions()->isTestingEnabled())
+    if (this->testAttribute(AA_EnableTesting))
       {
       this->exit(EXIT_FAILURE);
       }
@@ -753,6 +835,16 @@ void qSlicerApplication::openSettingsDialog(const QString& settingsPanel/*=QStri
     Qt::WindowFlags windowFlags = d->SettingsDialog->windowFlags();
     d->SettingsDialog->setParent(this->mainWindow());
     d->SettingsDialog->setWindowFlags(windowFlags);
+
+    // Make favorite module list changes update the module toolbar immediately
+    // (without application restart).
+    ctkSettingsPanel* settingsModulesPanel = d->SettingsDialog->panel(qSlicerApplication::tr("Modules"));
+    if (settingsModulesPanel)
+      {
+      QObject::connect(settingsModulesPanel, SIGNAL(favoriteModulesChanged()),
+        this->mainWindow(), SLOT(on_FavoriteModulesChanged()));
+      }
+
     }
 
   // Reload settings to apply any changes that have been made outside of the
@@ -793,23 +885,7 @@ void qSlicerApplication::openExtensionsManagerDialog()
     }
   d->IsExtensionsManagerDialogOpen = true;
 
-  // Startup of extensions manager can take tens of seconds.
-  // Display a popup to let the user know.
   QApplication::setOverrideCursor(QCursor(Qt::BusyCursor));
-  QDialog* startupInProgressDialog = new QDialog(this->mainWindow(), Qt::FramelessWindowHint | Qt::Dialog);
-  QVBoxLayout* layout = new QVBoxLayout();
-  startupInProgressDialog->setLayout(layout);
-  QFrame* frame = new QFrame();
-  frame->setFrameStyle(QFrame::Panel | QFrame::Sunken);
-  layout->addWidget(frame);
-  QVBoxLayout* innerLayout = new QVBoxLayout();
-  frame->setLayout(innerLayout);
-  innerLayout->setMargin(20);
-  QLabel* label = new QLabel();
-  label->setText(tr("Extensions manager is starting, please wait..."));
-  innerLayout->addWidget(label);
-  startupInProgressDialog->show();
-  this->processEvents();
 
   if(!d->ExtensionsManagerDialog)
     {
@@ -824,10 +900,10 @@ void qSlicerApplication::openExtensionsManagerDialog()
   // This call takes most of the startup time
   d->ExtensionsManagerDialog->setExtensionsManagerModel(this->extensionsManagerModel());
 
-  // Hide the popup window.
+  // Allow user to start typing immediately to locate an extension.
+  d->ExtensionsManagerDialog->setFocusToSearchBox();
+
   QApplication::restoreOverrideCursor();
-  startupInProgressDialog->hide();
-  startupInProgressDialog->deleteLater();
 
   bool accepted = (d->ExtensionsManagerDialog->exec() == QDialog::Accepted);
   if (accepted)
@@ -835,6 +911,32 @@ void qSlicerApplication::openExtensionsManagerDialog()
     this->confirmRestart();
     }
   d->IsExtensionsManagerDialogOpen = false;
+}
+
+// --------------------------------------------------------------------------
+void qSlicerApplication::openExtensionsCatalogWebsite()
+{
+  Q_D(qSlicerApplication);
+  if (!this->extensionsManagerModel())
+    {
+    return;
+    }
+  QUrl url = this->extensionsManagerModel()->extensionsListUrl();
+  QDesktopServices::openUrl(url);
+}
+#endif
+
+// --------------------------------------------------------------------------
+#ifdef Slicer_BUILD_APPLICATIONUPDATE_SUPPORT
+void qSlicerApplication::openApplicationDownloadWebsite()
+{
+  Q_D(qSlicerApplication);
+  if (!this->applicationUpdateManager())
+    {
+    return;
+    }
+  QUrl url = this->applicationUpdateManager()->applicationDownloadPageUrl();
+  QDesktopServices::openUrl(url);
 }
 #endif
 
@@ -1327,3 +1429,46 @@ bool qSlicerApplication::loadFiles(const QStringList& filePaths, vtkMRMLMessageC
   qSlicerIOManager::showLoadNodesResultDialog(success, userMessages);
   return success;
 }
+
+#ifdef Slicer_USE_PYTHONQT
+//---------------------------------------------------------------------------
+void qSlicerApplication::logToPythonConsole(const QDateTime& currentDateTime, const QString& threadId,
+  ctkErrorLogLevel::LogLevel logLevel, const QString& origin, const ctkErrorLogContext& context, const QString& text)
+{
+  Q_D(qSlicerApplication);
+  Q_UNUSED(currentDateTime);
+  Q_UNUSED(threadId);
+  Q_UNUSED(context);
+
+  if (d->PythonConsoleLogLevel == ctkErrorLogLevel::None  // console logging disabled
+    || logLevel < d->PythonConsoleLogLevel  // these levels are not displayed
+    || origin == "Stream")  // Python stream output is already displayed in the console, other output streams should not appear
+    {
+    return;
+    }
+
+  ctkPythonConsole* pythonConsole = this->pythonConsole();
+  if (!pythonConsole)
+    {
+    return;
+    }
+  QString prefixedText;
+  QStringList lines = text.split('\n');
+  foreach(const QString & line, lines)
+    {
+    if (line.isEmpty())
+      {
+      continue;
+      }
+    prefixedText += "[" + origin + "] " + line + "\n";
+    }
+  if (logLevel < ctkErrorLogLevel::Warning)
+    {
+    pythonConsole->printOutputMessage(prefixedText);
+    }
+  else
+    {
+    pythonConsole->printErrorMessage(prefixedText);
+    }
+}
+#endif

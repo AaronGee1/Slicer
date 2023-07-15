@@ -12,7 +12,7 @@
   See the License for the specific language governing permissions and
   limitations under the License.
 
-  This file was centerally developed by Kyle Sunderland, PerkLab, Queen's University
+  This file was originally developed by Kyle Sunderland, PerkLab, Queen's University
   and was supported through CANARIE's Research Software Program, Cancer
   Care Ontario, OpenAnatomy, and Brigham and Women's Hospital through NIH grant R01MH112748.
 
@@ -197,6 +197,10 @@ public:
   void GetBounds(double bounds[6]) override;
   //@}
 
+  /// Get ROI bounds in Object coordinate system. The difference compared to GetBounds() is that
+  /// the center of the ROI is the origin in the Object coordinate system.
+  void GetObjectBounds(double bounds[6]);
+
   //@{
   /// Returns the planes that define each of the 6 faces of the ROI.
   /// If InsideOut property of the node is true the normals of the plane will face inward,
@@ -235,6 +239,10 @@ public:
   vtkGetObjectMacro(ImplicitFunction, vtkImplicitFunction);
   /// Get the implicit function that represents the ROI in world coordinates.
   vtkGetObjectMacro(ImplicitFunctionWorld, vtkImplicitFunction);
+
+  /// Create ROI box as surface mesh in the world coordinate system as a new vtkPolyData object.
+  /// Only in C++: The caller must take ownership of the returned object.
+  VTK_NEWINSTANCE vtkPolyData* CreateROIBoxPolyDataWorld();
 
   ///
   /// Legacy vtkMRMLAnnotationROINode methods

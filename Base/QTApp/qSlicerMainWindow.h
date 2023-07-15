@@ -62,9 +62,8 @@ public:
   /// Return a pointer to the error log widget.
   /// \sa moduleSelector(), pythonConsole()
   Q_INVOKABLE ctkErrorLogWidget* errorLogWidget()const;
-
-  /// Return the view node that is temporarily shown maximized in the view layout.
-  Q_INVOKABLE vtkMRMLAbstractViewNode* layoutMaximizedViewNode();
+  /// Return a pointer to the dock widget that shows the Error Log.
+  Q_INVOKABLE QDockWidget* errorLogDockWidget()const;
 
 public slots:
   virtual void setHomeModuleCurrent();
@@ -100,16 +99,15 @@ public slots:
   /// Set the view layout.
   virtual void setLayout(int);
 
-  /// Makes a view displayed maximized (taking the entire area) of the view layout.
-  /// Setting the value to nullptr restores the original view layout.
-  virtual void setLayoutMaximizedViewNode(vtkMRMLAbstractViewNode*);
+  /// Restores the original (non-maximized) layout in all viewports.
+  virtual void removeAllMaximizedViewNodes();
 
   virtual void setLayoutNumberOfCompareViewRows(int);
   virtual void setLayoutNumberOfCompareViewColumns(int);
 
   virtual void onPythonConsoleToggled(bool);
+  virtual void onErrorLogToggled(bool);
 
-  virtual void on_WindowErrorLogAction_triggered();
   virtual void on_WindowToolbarsResetToDefaultAction_triggered();
 
   virtual void on_EditApplicationSettingsAction_triggered();
@@ -138,6 +136,9 @@ public slots:
 
   virtual void addFileToRecentFiles(const qSlicerIO::IOProperties& fileProperties);
 
+  /// Refresh favorite modules toolbar from application settings
+  virtual void on_FavoriteModulesChanged();
+
 signals:
   /// Emitted when the window is first shown to the user.
   /// \sa showEvent(QShowEvent *)
@@ -153,15 +154,26 @@ protected slots:
   virtual void onLayoutChanged(int);
   virtual void onWarningsOrErrorsOccurred(ctkErrorLogLevel::LogLevel logLevel);
 
+  // Show/hide update indicator on Extensions Manager toolbar icon
+  void setExtensionUpdatesAvailable(bool updateAvailable);
+
 #ifdef Slicer_USE_PYTHONQT
   virtual void onPythonConsoleUserInput(const QString&);
 #endif
+
+  /// The Error Log widget was docked into a different screen region,
+  /// adjust its orientation as needed.
+  virtual void onErrorLogDockWidgetAreaChanged(Qt::DockWidgetArea);
+
+  /// User interacted with the Error Log window,
+  /// hide the new error notification.
+  void onUserViewedErrorLog();
 
 protected:
   /// Connect MainWindow action with slots defined in MainWindowCore
   virtual void setupMenuActions();
 
-  /// Open Python interactor if it was requested
+  /// Open Python console if it was requested
   virtual void pythonConsoleInitialDisplay();
 
   /// Open a popup to warn the user Slicer is not for clinical use.
